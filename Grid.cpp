@@ -103,6 +103,7 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 
 #ifdef _CELL_BASED_STORAGE
 	//转化为cell连续存储
+	//此处连续存储是指同一cell内的采样点存储在一起，有利于rangeQuery，但不利于similarity query
 	this->allPoints = (Point*)malloc(sizeof(Point)*(this->totalPointNum));
 	pointCount = 0;
 	for (int i = 0; i <= cellnum - 1; i++) {
@@ -263,7 +264,7 @@ int Grid::rangeQuery(MBB & bound, CPURangeQueryResult * ResultTable, int* result
 			}
 		}
 		timer.stop();
-		cout << "CPU time:" << timer.ticks() << endl;
+		cout << "CPU time:" << timer.elapse() << "ms" <<endl;
 		//直接作为result的cell加进resulttable
 		for (int i = 0; i <= DirectresultSize - 1; i++) {
 			Cell &ce = this->cellPtr[directResultsCellID[i]];
@@ -390,11 +391,13 @@ int Grid::rangeQueryGPU(MBB & bound, CPURangeQueryResult * ResultTable, int * re
 			candidateCellRangeEnds[notNullCandidateNum] = this->cellPtr[candidatesCellID[i]].pointRangeEnd;
 			notNullCandidateNum++;
 		}
-		int *resultIdxs = NULL;
+		Point *resultsCandidate = NULL;
 		int resultNum = 0;
-		cudaRangeQueryHandler(candidatesCellID, candidateCellRangeStarts, candidateCellRangeEnds, notNullCandidateNum, bound.xmin, bound.ymin, bound.xmax, bound.ymax, resultIdxs, resultNum,this->allPointsPtrGPU ,resultIdxs);
+		cudaRangeQueryHandler(candidatesCellID, candidateCellRangeStarts, candidateCellRangeEnds, notNullCandidateNum, bound.xmin, bound.ymin, bound.xmax, bound.ymax, resultsCandidate, resultNum,this->allPointsPtrGPU , resultsCandidate);
+		//Sleep(1000);
 		timer.stop();
-		cout << "GPU Time:" << timer.ticks() << endl;
+		
+		cout << "GPU Time:" << timer.elapse() << "ms" << endl;
 		//for (int i = 0; i <= resultNum - 1; i++) {
 		//	cout << resultIdxs[i] << ",";
 		//}

@@ -48,7 +48,7 @@ int putCellDataSetIntoGPU(Point* pointsPtr, Point*& pointsPtrGPU, int pointNum) 
 	CUDA_CALL(cudaMemcpy(pointsPtrGPU, pointsPtr, pointNum * sizeof(Point), cudaMemcpyHostToDevice));//数据拷贝到gpu里
 	return 0;
 }
-__global__ void cudaRangeQuery(int* rangeStarts, int* rangeEnds, int candidateCellNum, const Point* pointsPtr, const float xmin, const float ymin, const float xmax, const float ymax, const int *resultOffset, int* resultPtrCuda) {
+__global__ void cudaRangeQuery(int* rangeStarts, int* rangeEnds, int candidateCellNum, const Point* pointsPtr, const float xmin, const float ymin, const float xmax, const float ymax, const int *resultOffset, Point* resultPtrCuda) {
 	int cellNo = blockIdx.x; //candidate里面第几个cell 0,1,2,....
 	if (cellNo >= candidateCellNum) return;
 	int tid = threadIdx.x;
@@ -58,17 +58,24 @@ __global__ void cudaRangeQuery(int* rangeStarts, int* rangeEnds, int candidateCe
 	for (int i = tid; i <= pointNum - 1; i += THREAD_N) {
 		float x = pointsPtr[offset + i].x;
 		float y = pointsPtr[offset + i].y;
-		if (x <= xmax &&x >= xmin&&y <= ymax&&y >= ymin)
-			resultPtrCuda[resultOffset[cellNo] + i] = offset + i;
+		uint32_t tid = pointsPtr[offset + i].tID;
+		uint32_t time = pointsPtr[offset + i].time;
+		if (x <= xmax &&x >= xmin&&y <= ymax&&y >= ymin) {
+			resultPtrCuda[resultOffset[cellNo] + i].x = x;
+			resultPtrCuda[resultOffset[cellNo] + i].y = y;
+			resultPtrCuda[resultOffset[cellNo] + i].tID = tid;
+			resultPtrCuda[resultOffset[cellNo] + i].time = time;
+		}
 		else
-			resultPtrCuda[resultOffset[cellNo] + i] = -1;
+			resultPtrCuda[resultOffset[cellNo] + i].tID = -1;
 	}
 }
-int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds, int candidateCellNum,float xmin, float ymin, float xmax, float ymax, int*& idxsGPU, int& resultNum,Point *pointsPtrGPU,int *&resultIdx) {
+int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds, int candidateCellNum,float xmin, float ymin, float xmax, float ymax, Point*& resultsGPU, int& resultNum,Point *pointsPtrGPU,Point *&result) {
 	//第一个参数暂时没有用，注意这里candidatecells[i]已经不再是cell的id，由于只存非空
 	//第四个参数表示非空的cell个数
 	//计算candidate集中的点的总数，gpu内开辟相同大小的空间做flag。rangestart和rangeend是相应candidatecell内的采样点在AllPoints的起始下标和终止下标
 	//倒数第三个和倒数第二个参数是输出，一个是保存结果的GPU地址，第二个是结果的个数
+	//PointsPtrGPU是数据集在gpu的地址
 	//MyTimer timer1;
 	//timer1.start();
 	int counter = 0;
@@ -86,7 +93,7 @@ int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds,
 
 	int* candidateCellsCuda = NULL, *rangeStartsCuda = NULL, *rangeEndsCuda = NULL, *resultOffsetCuda = NULL;
 
-	CUDA_CALL(cudaMalloc((void**)&idxsGPU, sizeof(int)*totalPointNumInCandidate));
+	CUDA_CALL(cudaMalloc((void**)&resultsGPU, sizeof(Point)*totalPointNumInCandidate));
 	//将range和cell信息写入gpu
 	//CUDA_CALL(cudaMalloc((void**)&candidateCellsCuda, sizeof(int)*candidateCellNum));
 	CUDA_CALL(cudaMalloc((void**)&rangeStartsCuda, candidateCellNum*sizeof(int)));
@@ -113,7 +120,7 @@ int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds,
 	//timer1.start();
 	//调用kernel，如果某点满足条件，在相应位置写入在AllPoints中的下标，否则写入-1
 	//每个cell分配给一个block
-	cudaRangeQuery <<<candidateCellNum, THREAD_N >>>(rangeStartsCuda, rangeEndsCuda, candidateCellNum, pointsPtrGPU, xmin, ymin, xmax, ymax, resultOffsetCuda, idxsGPU);
+	cudaRangeQuery <<<candidateCellNum, THREAD_N >>>(rangeStartsCuda, rangeEndsCuda, candidateCellNum, pointsPtrGPU, xmin, ymin, xmax, ymax, resultOffsetCuda, resultsGPU);
 	//kernel调用结束，结果保存在idxsGPU中，如果符合条件，对应元素内容是在AllPoints的下标，如果不符合，内容为-1
 	//CUDA_CALL(cudaFree(candidateCellsCuda));
 	CUDA_CALL(cudaFree(rangeStartsCuda));
@@ -128,17 +135,18 @@ int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds,
 	//test
 
 	//timer1.start();
-	int *resultset = NULL;
-	resultset = (int*)malloc(totalPointNumInCandidate*sizeof(int));
-	CUDA_CALL(cudaMemcpy(resultset, idxsGPU, sizeof(int)*totalPointNumInCandidate, cudaMemcpyDeviceToHost));
-	std::vector<int> *resultid = new std::vector<int>;
+	Point *resultset = NULL;
+	resultset = (Point*)malloc(totalPointNumInCandidate*sizeof(Point));
+	CUDA_CALL(cudaMemcpy(resultset, resultsGPU, sizeof(Point)*totalPointNumInCandidate, cudaMemcpyDeviceToHost));
+	std::vector<Point> *resultPoint = new std::vector<Point>;
 	for (int i = 0; i <= totalPointNumInCandidate - 1; i++) {
-		if (resultset[i] != -1)
+		if (resultset[i].tID != -1)
 		{
-			resultid->push_back(i);
+			resultPoint->push_back(resultset[i]);
 		}
 	}
-	resultIdx = &resultid->at(0);
+	result = &resultPoint->at(0);
+	free(resultset);
 	//test
 	//timer1.stop();
 	//std::cout << timer1.ticks() << std::endl;
