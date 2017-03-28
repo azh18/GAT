@@ -25,7 +25,7 @@ public:
 	//rangeQuery函数，输入Bounding box，输出轨迹编号和对应顺序下的采样点
 	int rangeQuery(MBB & bound, CPURangeQueryResult * ResultTable, int* resultSetSize);
 	int rangeQueryGPU(MBB & bound, CPURangeQueryResult * ResultTable, int* resultSetSize);
-
+	int SimilarityQuery(Trajectory &qTra, Trajectory **candTra, int candSize, float *EDRdistance);
 
 
 	//Grid索引包含的坐标范围
@@ -41,6 +41,7 @@ public:
 #ifdef _CELL_BASED_STORAGE
 	Point* allPoints;//存储所有点的数组
 	Point* allPointsPtrGPU;
+	
 
 #endif // _CELL_BASED_STORAGE
 

@@ -22,6 +22,7 @@ string baseDate = "2014-07-01";
 
 int main()
 {
+	
 	int WriteTrajectoryToFile(string outFileName, int numTra);
 	cout << "Hello world!" << endl;
 	cout << sizeof(Cell) << endl;
@@ -32,7 +33,7 @@ int main()
 	//lat2 = +35.15221;
 	//lon2 = +113.10222;
 	//cout << calculateDistance(lat1, lon1, lat2, lon2) << endl;
-	PreProcess pp("SH_4.txt", "dataout.txt");
+	PreProcess pp("SH_1.txt", "dataout.txt");
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.003);
@@ -50,6 +51,21 @@ int main()
 	int RangeQueryResultSize = 0;
 	g->rangeQuery(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
 	g->rangeQueryGPU(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
+
+	/*
+	≤‚ ‘EDR DistanceµƒGPU∞Ê±æ
+	17.3.28
+	*/
+	Trajectory **testTra = (Trajectory**)malloc(sizeof(Trajectory*) * 100);
+	for (int i = 2; i <= 5001; i++) {
+		testTra[i-2] = &tradb[i];
+	}
+	float *EDRdistance = (float*)malloc(sizeof(float) * 5000);
+	g->SimilarityQuery(tradb[2], testTra, 5000, EDRdistance);
+	/*
+	≤‚ ‘
+	*/
+
 
 	ofstream ftest;
 	ftest.open("ftest.txt", ios_base::out);

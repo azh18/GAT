@@ -5,3 +5,6 @@
 int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds, int candidateCellNum, float xmin, float ymin, float xmax, float ymax, Point*& resultsGPU, int& resultNum, Point *pointsPtrGPU, Point *&result);
 int putCellDataSetIntoGPU(Point* pointsPtr, Point*& pointsPtrGPU, int pointNum);
 #endif
+
+int handleEDRdistance(SPoint *queryTra, SPoint **candidateTra, int candidateNum, int queryLength, int *candidateLength, int *result);
+void CUDAwarmUp();

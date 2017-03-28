@@ -442,6 +442,136 @@ int Grid::rangeQueryGPU(MBB & bound, CPURangeQueryResult * ResultTable, int * re
 }
 
 
+int Grid::SimilarityQuery(Trajectory & qTra, Trajectory **candTra, const int candSize, float * EDRdistance)
+{
+	cout << candSize << endl;
+	SPoint *queryTra = (SPoint*)malloc(sizeof(SPoint)*(qTra.length));
+	for (int i = 0; i <= qTra.length - 1; i++) {
+		queryTra[i].x = qTra.points[i].lon;
+		queryTra[i].y = qTra.points[i].lat;
+		queryTra[i].tID = qTra.points[i].tid;
+	}
+
+	SPoint **candidateTra = (SPoint**)malloc(sizeof(SPoint*)*candSize);
+
+	for (int i = 0; i <= candSize - 1; i++) {
+		candidateTra[i] = (SPoint*)malloc(sizeof(SPoint)*(candTra[i]->length));
+		for (int j = 0; j <= candTra[i]->length - 1; j++) {
+			candidateTra[i][j].x = candTra[i]->points[j].lon;
+			candidateTra[i][j].y = candTra[i]->points[j].lat;
+			candidateTra[i][j].tID = candTra[i]->points[j].tid;
+		}
+	}
+
+	int queryLength=qTra.length;
+	int *candidateLength = (int*)malloc(sizeof(int)*candSize);
+	for (int i = 0; i <= candSize - 1; i++) {
+		candidateLength[i] = candTra[i]->length;
+	}
+
+	int* result = (int*)malloc(sizeof(int)*candSize);
+
+	MyTimer timer1;
+	timer1.start();
+
+	//CPU
+	int *resultCPU = (int*)malloc(sizeof(int)*candSize);
+	for (int i = 0; i <= candSize - 1; i++) {
+		//每个DP问题
+		SPoint *CPUqueryTra = queryTra,*CPUCandTra = candidateTra[i];
+		int CPUqueryLength = qTra.length, CPUCandLength = candidateLength[i];
+		int longest=0;
+
+		const SPoint *tra1, *tra2;
+		int len1, len2;
+		if (CPUCandLength >= CPUqueryLength) {
+			tra1 = CPUqueryTra;
+			tra2 = CPUCandTra;
+			len1 = CPUqueryLength;
+			len2 = CPUCandLength;
+		}
+		else
+		{
+			tra1 = CPUCandTra;
+			tra2 = CPUqueryTra;
+			len1 = CPUCandLength;
+			len2 = CPUqueryLength;
+		}
+
+		if (CPUqueryLength >= longest) {
+			longest = CPUqueryLength;
+		}
+		else
+		{
+			longest = CPUCandLength;
+		}
+
+
+		int **stateTable = (int**)malloc(sizeof(int*)*(len1 + 1));
+		for (int j = 0; j <= len1; j++) {
+			stateTable[j] = (int*)malloc(sizeof(int)*(len2 + 1));
+		}
+		stateTable[0][0] = 0;
+		for (int row = 1; row <= len1; row++) {
+			stateTable[row][0] = row;
+		}
+		for (int col = 1; col <= len2; col++) {
+			stateTable[0][col] = col;
+		}
+
+		for (int row = 1; row <= len1; row++) {
+			for (int col = 1; col <= len2; col++) {
+				SPoint p1 = tra1[row-1];
+				SPoint p2 = tra2[col-1]; //这样做内存是聚集访问的吗？
+				bool subcost;
+				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+					subcost = 0;
+				}
+				else
+					subcost = 1;
+				int myState = 0;
+				int state_ismatch = stateTable[row-1][col-1] + subcost;
+				int state_up = stateTable[row-1][col] + 1;
+				int state_left = stateTable[row][col-1] + 1;
+				if (state_ismatch < state_up)
+					myState = state_ismatch;
+				else if (state_left < state_up)
+					myState = state_left;
+				else
+					myState = state_ismatch;
+
+				stateTable[row][col] = myState;
+			//	if (row == len1&&col == len2)
+					//cout << myState << endl;
+			}
+		}
+		
+		resultCPU[i] = stateTable[len1][len2];
+		//cout << resultCPU[i] << endl;
+	}
+	timer1.stop();
+	cout << "CPU Similarity Time:" << timer1.elapse() << "ms" << endl;
+	//GPU
+
+	timer1.start();
+	handleEDRdistance(queryTra, candidateTra, candSize, queryLength, candidateLength, result);
+	timer1.stop();
+	cout << "GPU Similarity Time:" << timer1.elapse() << "ms" << endl;
+
+	for (int i = 0; i <= candSize - 1; i++) {
+		EDRdistance[i] = result[i];
+	}
+	free(queryTra);
+	for (int i = 0; i <= candSize - 1; i++) {
+		free(candidateTra[i]);
+	}
+	free(candidateTra);
+	free(candidateLength);
+	free(result);
+
+	return 0;
+}
+
 Grid::~Grid()
 {
 }
