@@ -33,7 +33,7 @@ int main()
 	//lat2 = +35.15221;
 	//lon2 = +113.10222;
 	//cout << calculateDistance(lat1, lon1, lat2, lon2) << endl;
-	PreProcess pp("SH_1.txt", "dataout.txt");
+	PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.003);
@@ -56,7 +56,7 @@ int main()
 	²âÊÔEDR DistanceµÄGPU°æ±¾
 	17.3.28
 	*/
-	Trajectory **testTra = (Trajectory**)malloc(sizeof(Trajectory*) * 100);
+	Trajectory **testTra = (Trajectory**)malloc(sizeof(Trajectory*) * 5000);
 	for (int i = 2; i <= 5001; i++) {
 		testTra[i-2] = &tradb[i];
 	}

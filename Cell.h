@@ -11,9 +11,9 @@
 using namespace std;
 typedef struct subTra {
 	int traID;
-	int startpID;
-	int endpID;
-	int numOfPoint;//每个子轨迹点的个数
+	short startpID;
+	short endpID;
+	short numOfPoint;//每个子轨迹点的个数
 	subTra* next;
 }subTra;
 
@@ -29,13 +29,15 @@ public:
 	~Cell();
 
 
-
+	// 这三个属性都可以计算出来
 	int cell_x;//cell横坐标
 	int cell_y;//cell纵坐标
 	MBB mbb;
+
 	int subTraNum; //子轨迹的个数
 	int totalPointNum; //cell内点个数
-	subTra subTraEntry;//建立cell过程中链表入口
+
+	subTra subTraEntry;//建立cell过程中链表入口（这一点改掉，太浪费内存）
 	subTra* subTraPtr;//当前最新数据指针位置
 	subTra* subTraTable;//转化为数组后数组的入口
 	ofstream fout;//文件接口

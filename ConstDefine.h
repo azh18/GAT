@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string>
+#include <math.h>
 
 //test:ÒÔcellÎª»ù´¡´æ´¢
 #define _CELL_BASED_STORAGE
@@ -27,3 +28,8 @@ typedef struct SPoint {
 	float y;
 	uint32_t tID;
 }SPoint;
+
+typedef struct cellBasedTraj {
+	int *cellNo = NULL;
+	short length;
+};

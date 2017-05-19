@@ -10,8 +10,7 @@ Grid::Grid()
 	range = MBB(0, 0, 0, 0);
 	cellnum = 0;
 	cell_size = 0;
-	cell_num_x = 0;
-	cell_num_y = 0;
+	cellNum_axis = 0;
 	cellPtr = NULL;
 #ifdef _CELL_BASED_STORAGE
 	allPoints = NULL;
@@ -20,49 +19,95 @@ Grid::Grid()
 
 }
 
+//测试过，没问题
+int Grid::getIdxFromXY(int x, int y)
+{
+	int lenx, leny;
+	if (x == 0)
+		lenx = 1;
+	else
+	{
+		lenx = int(log2(x)) + 1;
+	}
+	if (y == 0)
+		leny = 1;
+	else
+		leny = int(log2(y)) + 1;
+	int result = 0;
+	int xbit = 1, ybit = 1;
+	for (int i = 1; i <= 2 * max(lenx, leny); i++) {
+		if (i & 1 == 1) //奇数
+		{
+			result += (x >> (xbit - 1) & 1) * (1 << (i - 1));
+			xbit = xbit + 1;
+		}
+		else //偶数
+		{
+			result += (y >> (ybit - 1) & 1) * (1 << (i - 1));
+			ybit = ybit + 1;
+		}
+	}
+	return result;
+}
+
 Grid::Grid(const MBB& mbb,float val_cell_size)
 {
 	range = mbb;
 	cell_size = val_cell_size;
-	//横向有多少个cell
-	cell_num_x = (int)((mbb.xmax - mbb.xmin) / val_cell_size) + 1;
-	//纵向有多少个cell
-	cell_num_y = (int)((mbb.ymax - mbb.ymin) / val_cell_size) + 1;
-	cellnum = cell_num_x*cell_num_y;
+	//貌似只需要用一个维度就行了，因为规定好了必须是2*2,4*4，……
+	int divideNumOnX = (int)((mbb.xmax - mbb.xmin) / val_cell_size) + 1; //最少要用多少个cell
+	int divideNumOnY = (int)((mbb.ymax - mbb.ymin) / val_cell_size) + 1;
+	int maxValue = max(divideNumOnX, divideNumOnY);
+	//找到最佳的长宽
+	cellNum_axis = maxValue >> (int(log2(maxValue))) << (int(log2(maxValue)) + 1);
+	cellnum = cellNum_axis * cellNum_axis;
 	cellPtr = new Cell[cellnum];
+	//由于满足正方形需要，向xmax、ymin方向扩展range
+
 	//注意cell编号是从(xmin,ymax)开始的，而不是(xmin,ymin)
-	for (int i = 0; i <= cell_num_y - 1; i++) {
-		for (int j = 0; j <= cell_num_x - 1; j++) {
-			int cell_idx = i*cell_num_x + j;
+	//Z字形编码
+	for (int i = 0; i <= cellNum_axis - 1; i++) {
+		for (int j = 0; j <= cellNum_axis - 1; j++) {
+			int cell_idx = getIdxFromXY(j, i);
 			cellPtr[cell_idx].initial(i, j, MBB(range.xmin + cell_size*j, range.ymax - cell_size*(i+1), range.xmin + cell_size*(j + 1), range.ymax - cell_size*(i)));
 		}
 	}
 }
 
 //把轨迹t打碎成子轨迹，添加到cell里面
+//这一步仅仅是把子轨迹放进了cell里面，组成一个个item
 int Grid::addTrajectoryIntoCell(Trajectory &t)
 {
 	if (t.length == 0)
 		return 1;//空轨迹
 	SamplePoint p = t.points[0];
-	int lastCellNo = WhichCellPointIn(p);
+	int lastCellNo = WhichCellPointIn(p); 
 	int lastCellStartIdx = 0;
 	int nowCellNo;
+	//cell based traj生成，记得转换后free！
+	vector<int> *tempCellBasedTraj = new vector<int>;
+	tempCellBasedTraj->reserve(1048577);
+	int tempCellNum = 0;
 	for (int i = 1; i <= t.length - 1; i++) {
 		p = t.points[i];
 		nowCellNo = WhichCellPointIn(p);
 		if (i == t.length - 1)
 		{
+			//到最后一条，发现这个cell也是上个cell就是最后一个cell了，添加之
 			if (lastCellNo == nowCellNo)
 			{
+				tempCellNum++;
+				tempCellBasedTraj->push_back(nowCellNo);
 				cellPtr[nowCellNo].addSubTra(t.tid, lastCellStartIdx, i, i - lastCellStartIdx + 1);
-				return 0;
 			}
+			//否则，上一个和这个cell都要添加
 			else
 			{
+				tempCellNum += 2;
+				tempCellBasedTraj->push_back(lastCellNo);
+				tempCellBasedTraj->push_back(nowCellNo);
 				cellPtr[lastCellNo].addSubTra(t.tid, lastCellStartIdx, i - 1, i - 1 - lastCellStartIdx + 1);
 				cellPtr[nowCellNo].addSubTra(t.tid, i, i, 1);
-				return 0;
 			}
 		}
 		else
@@ -71,26 +116,40 @@ int Grid::addTrajectoryIntoCell(Trajectory &t)
 				continue;
 			else
 			{
+				// 终结一条子轨迹，开始下一条子轨迹
+				//cellTra里面加一条
+				tempCellNum++;
+				tempCellBasedTraj->push_back(lastCellNo);
+				//SubTra添加
 				cellPtr[lastCellNo].addSubTra(t.tid, lastCellStartIdx, i - 1, i - 1 - lastCellStartIdx + 1);
 				lastCellNo = nowCellNo;
 				lastCellStartIdx = i;
 			}
 		}
 	}
+	this->cellBasedTrajectory[t.tid].length = tempCellNum;
+	this->cellBasedTrajectory[t.tid].cellNo = (int*)malloc(sizeof(int)*tempCellNum);
+	if (this->cellBasedTrajectory[t.tid].cellNo == NULL) throw("alloc error");
+	for (int i = 0; i <= tempCellNum - 1; i++) {
+		this->cellBasedTrajectory[t.tid].cellNo[i] = tempCellBasedTraj->at(i);
+	}
+	delete tempCellBasedTraj;
 	return 0;
 }
 
+//确认无误
 int Grid::WhichCellPointIn(SamplePoint p)
 {
 	//注意cell编号是从(xmin,ymax)开始的，而不是(xmin,ymin)
-	int row = (int)((range.ymax - p.lat) / cell_size);
-	int col = (int)((p.lon - range.xmin) / cell_size);
-	return row*cell_num_x + col;
+	int row = (int)((range.ymax - p.lat) / cell_size); //从0开始
+	int col = (int)((p.lon - range.xmin) / cell_size); //从0开始
+	return getIdxFromXY(col, row);
 }
 
 int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 {
 	//注意，轨迹编号从1开始
+	this->cellBasedTrajectory.resize(traNum + 1); //扩大cellbasedtraj的规模，加轨迹的时候可以直接用
 	int pointCount = 0;
 	for (int i = 1; i <= traNum; i++) {
 		addTrajectoryIntoCell(db[i]);
@@ -100,10 +159,12 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 		pointCount += cellPtr[i].totalPointNum;
 	}
 	this->totalPointNum = pointCount;
+	//链表变成了数组
+	//subTraTable仅仅是记录了子轨迹（起始offset、终止offset、Tid）
 
-#ifdef _CELL_BASED_STORAGE
 	//转化为cell连续存储
 	//此处连续存储是指同一cell内的采样点存储在一起，有利于rangeQuery，但不利于similarity query
+	//similarity组装轨迹的时候，可以先记录当前是第几个subtra，找轨迹的时候从这个往后找，避免tid重复存在的问题
 	this->allPoints = (Point*)malloc(sizeof(Point)*(this->totalPointNum));
 	pointCount = 0;
 	for (int i = 0; i <= cellnum - 1; i++) {
@@ -124,7 +185,6 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 	//把生成好的allpoints放到GPU内
 	putCellDataSetIntoGPU(this->allPoints, this->allPointsPtrGPU, this->totalPointNum);
 
-#endif // _CELL_BASED_STORAGE
 
 	return 0;
 }
@@ -150,6 +210,7 @@ int Grid::writeCellsToFile(int * cellNo,int cellNum, string file)
 }
 
 //int Grid::rangeQuery(MBB & bound, int * ResultTraID, SamplePoint ** ResultTable,int* resultSetSize,int* resultTraLength)
+//需要重写，因为编码规则改变
 int Grid::rangeQuery(MBB & bound, CPURangeQueryResult * ResultTable, int* resultSetSize)
 {
 	//这部分要移植到gpu上，尽量用底层函数写
@@ -171,8 +232,8 @@ int Grid::rangeQuery(MBB & bound, CPURangeQueryResult * ResultTable, int* result
 		int candidateSize = 0;//candidate个数
 		int resultSize,DirectresultSize = 0;//结果个数
 		int counter = 0;//计数器
-		m = this->cell_num_x;
-		n = this->cell_num_y;
+		m = this->cellNum_axis;
+		n = this->cellNum_axis;
 		g1 = (int)((bound.xmin - range.xmin) / cell_size);
 		g2 = (int)((bound.xmax - range.xmin) / cell_size);
 		g3 = (int)((range.ymax - bound.ymax) / cell_size);
@@ -290,6 +351,7 @@ int Grid::rangeQuery(MBB & bound, CPURangeQueryResult * ResultTable, int* result
 	return 0;
 }
 
+//需要重写，因为编码规则改变
 int Grid::rangeQueryGPU(MBB & bound, CPURangeQueryResult * ResultTable, int * resultSetSize)
 {
 	//这部分要移植到gpu上，尽量用底层函数写
@@ -311,8 +373,8 @@ int Grid::rangeQueryGPU(MBB & bound, CPURangeQueryResult * ResultTable, int * re
 		int candidateSize = 0;//candidate个数
 		int resultSize, DirectresultSize = 0;//结果个数
 		int counter = 0;//计数器
-		m = this->cell_num_x;
-		n = this->cell_num_y;
+		m = this->cellNum_axis;
+		n = this->cellNum_axis;
 		g1 = (int)((bound.xmin - range.xmin) / cell_size);
 		g2 = (int)((bound.xmax - range.xmin) / cell_size);
 		g3 = (int)((range.ymax - bound.ymax) / cell_size);
@@ -455,7 +517,7 @@ int Grid::SimilarityQuery(Trajectory & qTra, Trajectory **candTra, const int can
 	SPoint **candidateTra = (SPoint**)malloc(sizeof(SPoint*)*candSize);
 
 	for (int i = 0; i <= candSize - 1; i++) {
-		candidateTra[i] = (SPoint*)malloc(sizeof(SPoint)*(candTra[i]->length));
+		candidateTra[i] = (SPoint*)malloc(sizeof(SPoint)*(candTra[i]->length)); //调试的时候这一部分总报内存错误，FFFFF
 		for (int j = 0; j <= candTra[i]->length - 1; j++) {
 			candidateTra[i][j].x = candTra[i]->points[j].lon;
 			candidateTra[i][j].y = candTra[i]->points[j].lat;
@@ -571,6 +633,8 @@ int Grid::SimilarityQuery(Trajectory & qTra, Trajectory **candTra, const int can
 
 	return 0;
 }
+
+
 
 Grid::~Grid()
 {

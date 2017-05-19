@@ -26,24 +26,24 @@ public:
 	int rangeQuery(MBB & bound, CPURangeQueryResult * ResultTable, int* resultSetSize);
 	int rangeQueryGPU(MBB & bound, CPURangeQueryResult * ResultTable, int* resultSetSize);
 	int SimilarityQuery(Trajectory &qTra, Trajectory **candTra, int candSize, float *EDRdistance);
+	static int getIdxFromXY(int x, int y);
 
 
 	//Grid索引包含的坐标范围
 	MBB range;
 	float cell_size; //length of a cell
-	int cell_num_x,cell_num_y; //横竖各有多少个cell
+	int cellNum_axis; // 每行/列有几个cell
 	int cellnum; //upper(area(grid)/area(cell))，保证能放下所有cell
 	Cell* cellPtr; //存储cell的入口
 	ofstream fout;//文件输出接口
 	int totalPointNum; //grid内点个数
 
-	//test:以cell为基础存放数据
-#ifdef _CELL_BASED_STORAGE
+	vector<cellBasedTraj> cellBasedTrajectory; //cellbasedtrajectory，二元组：（cell编号数组地址，数组长度）
+
 	Point* allPoints;//存储所有点的数组
 	Point* allPointsPtrGPU;
 	
 
-#endif // _CELL_BASED_STORAGE
 
 
 };

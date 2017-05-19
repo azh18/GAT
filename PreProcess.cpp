@@ -25,6 +25,7 @@ PreProcess::PreProcess()
     //ctor
 }
 
+// splitº¯ÊýºÜÂý
 void split(std::string& s, std::string& delim,std::vector< std::string >* ret)
 {
     size_t last = 0;
