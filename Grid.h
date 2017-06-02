@@ -12,6 +12,14 @@
 
 extern Trajectory* tradb;
 
+typedef struct QuadtreeNode {
+	int NodeID;
+	uint8_t level;
+	int numPoints;
+	bool isLeaf;
+	QuadtreeNode *parent = NULL, *UL = NULL, *UR = NULL, *DL = NULL, *DR = NULL;
+}QuadtreeNode;
+
 class Grid
 {
 public:
@@ -27,6 +35,7 @@ public:
 	int rangeQueryGPU(MBB & bound, CPURangeQueryResult * ResultTable, int* resultSetSize);
 	int SimilarityQuery(Trajectory &qTra, Trajectory **candTra, int candSize, float *EDRdistance);
 	static int getIdxFromXY(int x, int y);
+	int buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode *parent);
 
 
 	//Grid索引包含的坐标范围
@@ -37,6 +46,7 @@ public:
 	Cell* cellPtr; //存储cell的入口
 	ofstream fout;//文件输出接口
 	int totalPointNum; //grid内点个数
+	QuadtreeNode *root;
 
 	vector<cellBasedTraj> cellBasedTrajectory; //cellbasedtrajectory，二元组：（cell编号数组地址，数组长度）
 

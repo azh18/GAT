@@ -12,6 +12,7 @@ Grid::Grid()
 	cell_size = 0;
 	cellNum_axis = 0;
 	cellPtr = NULL;
+	QuadtreeNode *root;
 #ifdef _CELL_BASED_STORAGE
 	allPoints = NULL;
 	allPointsPtrGPU = NULL;
@@ -36,7 +37,7 @@ int Grid::getIdxFromXY(int x, int y)
 	int result = 0;
 	int xbit = 1, ybit = 1;
 	for (int i = 1; i <= 2 * max(lenx, leny); i++) {
-		if (i & 1 == 1) //奇数
+		if ((i & 1) == 1) //奇数
 		{
 			result += (x >> (xbit - 1) & 1) * (1 << (i - 1));
 			xbit = xbit + 1;
@@ -48,6 +49,40 @@ int Grid::getIdxFromXY(int x, int y)
 		}
 	}
 	return result;
+}
+
+int Grid::buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode *parent)
+{
+	int totalLevel = int(log2(this->cellnum) / log2(4));
+	int totalPoints = 0;
+	for (int i = id*pow(4, (totalLevel - level)); i <= (id + 1) * pow(4, (totalLevel - level)) - 1; i++) {
+		totalPoints += this->cellPtr[i].totalPointNum;
+	}
+	pNode->numPoints = totalPoints;
+	pNode->NodeID = id;
+	pNode->parent = parent;
+	pNode->level = level;
+	if ((totalPoints < MAXPOINTINNODE)||(level==totalLevel)) {
+		pNode->isLeaf = true;
+		pNode->DL = NULL;
+		pNode->DR = NULL;
+		pNode->UL = NULL;
+		pNode->UR = NULL;
+		return 0;
+	}
+	else {
+		pNode->isLeaf = false;
+		pNode->UL = (QuadtreeNode*)malloc(sizeof(QuadtreeNode));
+		this->buildQuadTree(level + 1, id << 2, pNode->UL, pNode);
+		pNode->UR = (QuadtreeNode*)malloc(sizeof(QuadtreeNode));
+		this->buildQuadTree(level + 1, (id << 2)+1, pNode->UR, pNode);
+		pNode->DL = (QuadtreeNode*)malloc(sizeof(QuadtreeNode));
+		this->buildQuadTree(level + 1, (id << 2)+2, pNode->DL, pNode);
+		pNode->DR = (QuadtreeNode*)malloc(sizeof(QuadtreeNode));
+		this->buildQuadTree(level + 1, (id << 2)+3, pNode->DR, pNode);
+		return 0;
+	}
+
 }
 
 Grid::Grid(const MBB& mbb,float val_cell_size)
@@ -162,6 +197,10 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 	//链表变成了数组
 	//subTraTable仅仅是记录了子轨迹（起始offset、终止offset、Tid）
 
+	//建立Quadtree，自顶向下建立，分割节点使所有节点包含点的个数小于MAXPOINTINNODE
+	this->root = (QuadtreeNode*)malloc(sizeof(QuadtreeNode));
+	this->buildQuadTree(0, 0, this->root, NULL);
+
 	//转化为cell连续存储
 	//此处连续存储是指同一cell内的采样点存储在一起，有利于rangeQuery，但不利于similarity query
 	//similarity组装轨迹的时候，可以先记录当前是第几个subtra，找轨迹的时候从这个往后找，避免tid重复存在的问题
@@ -208,6 +247,8 @@ int Grid::writeCellsToFile(int * cellNo,int cellNum, string file)
 	}
 	return 0;
 }
+
+
 
 //int Grid::rangeQuery(MBB & bound, int * ResultTraID, SamplePoint ** ResultTable,int* resultSetSize,int* resultTraLength)
 //需要重写，因为编码规则改变

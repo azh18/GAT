@@ -92,20 +92,24 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra,int candid
 				SPoint p1 = tra1[threadID];
 				SPoint p2 = tra2[i - threadID]; //这样做内存是聚集访问的吗？
 				bool subcost;
-				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
-					subcost = 0;
-				}
-				else
-					subcost = 1;
+				//if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+				//	subcost = 0;
+				//}
+				//else
+				//	subcost = 1;
+				subcost = !(((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON);
 				int state_ismatch = state[0][threadID] + subcost;
 				int state_up = state[1][threadID] + 1;
 				int state_left = state[1][threadID+1] + 1;
-				if (state_ismatch < state_up)
-					myState = state_ismatch;
-				else if (state_left < state_up)
-					myState = state_left;
-				else
-					myState = state_ismatch;
+				//if (state_ismatch < state_up)
+				//	myState = state_ismatch;
+				//else if (state_left < state_up)
+				//	myState = state_left;
+				//else
+				//	myState = state_ismatch;
+				//去除if的表达方式，是否可以提升性能？
+				myState = (state_ismatch < state_up) * state_ismatch + (state_left < state_up) * state_up + (state_left >= state_up) * state_left;
+				
 			}
 		}
 		else if (i > iterNum - len1) {
@@ -241,7 +245,11 @@ int handleEDRdistance(SPoint *queryTra, SPoint **candidateTra, int candidateNum,
 	}
 	CUDA_CALL(cudaMalloc((void***)&candidateTraGPU, sizeof(SPoint*)*candidateNum));
 	CUDA_CALL(cudaMemcpy(candidateTraGPU, tempS, candidateNum*sizeof(SPoint*), cudaMemcpyHostToDevice));
-
+	//
+	time1.stop();
+	std::cout << time1.elapse() << std::endl;
+	time1.start();
+	//
 	//最好通过传参数的方法传递轨迹，这就要求轨迹连续存储
 	//向GPU传递轨迹信息
 	CUDA_CALL(cudaMemcpy(queryTraGPU, queryTra, queryLength*sizeof(SPoint), cudaMemcpyHostToDevice));

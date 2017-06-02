@@ -7,6 +7,9 @@
 #define EPSILON 10
 #define MAXTHREAD 512
 
+//每个node内包含的点的个数上限
+#define MAXPOINTINNODE 1000
+
 #include <stdio.h>
 #include <string>
 #include <math.h>
@@ -32,4 +35,4 @@ typedef struct SPoint {
 typedef struct cellBasedTraj {
 	int *cellNo = NULL;
 	short length;
-};
+}cellBasedTraj;
