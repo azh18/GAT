@@ -23,6 +23,8 @@ bool Cell::initial(int x, int y, const MBB& val_mbb) {
 	cell_x = x;
 	cell_y = y;
 	mbb = val_mbb;
+	anchorPointX = int((mbb.xmin + mbb.xmax) / 2 * 1000000);
+	anchorPointY = int((mbb.ymin + mbb.ymax) / 2 * 1000000);
 	subTraNum = 0;
 	totalPointNum = 0;
 	subTraEntry.next = NULL;

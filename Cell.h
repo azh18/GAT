@@ -33,6 +33,8 @@ public:
 	int cell_x;//cell横坐标
 	int cell_y;//cell纵坐标
 	MBB mbb;
+	int anchorPointX; //DeltaEncoding的基准，目前想的是整个cell的中心坐标
+	int anchorPointY;
 
 	int subTraNum; //子轨迹的个数
 	int totalPointNum; //cell内点个数

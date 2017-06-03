@@ -9,6 +9,7 @@
 #include "Trajectory.h"
 #include <vector>
 #include "Grid.h"
+#include "cudaKernel.h"
 
 using namespace std;
 
@@ -18,6 +19,7 @@ map<string, tidLinkTable*>::iterator iter;
 //global
 Trajectory* tradb;
 string baseDate = "2014-07-01";
+void *baseAddrGPU = NULL;
 
 
 int main()
@@ -49,6 +51,15 @@ int main()
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 	CPURangeQueryResult* resultTable=NULL;
 	int RangeQueryResultSize = 0;
+	MBB mbbArray[1000];
+	int* resultSize;
+	for (int i = 0; i <= 999;i++)
+		mbbArray[i] = MBB(121.4, 31.15, 121.6, 31.25);
+	g->rangeQueryBatch(mbbArray, 1000, resultTable, resultSize);
+	
+	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 1024 * 1024 * 1024));
+	g->rangeQueryBatchGPU(mbbArray, 1000, resultTable, resultSize);
+
 	g->rangeQuery(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
 	g->rangeQueryGPU(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
 

@@ -9,7 +9,10 @@
 #include<string>
 #include<sstream>
 #include<vector>
+#include "cudaKernel.h"
+#include <map>
 
+using namespace std;
 extern Trajectory* tradb;
 
 typedef struct QuadtreeNode {
@@ -18,7 +21,14 @@ typedef struct QuadtreeNode {
 	int numPoints;
 	bool isLeaf;
 	QuadtreeNode *parent = NULL, *UL = NULL, *UR = NULL, *DL = NULL, *DR = NULL;
+	MBB mbb;
 }QuadtreeNode;
+
+//记录node及其在gpu内地址的对应关系，用于防止重复复制
+typedef struct NodeAddrTable {
+	int NodeStartCellID;
+	void* ptr;
+}NodeAddrTable;
 
 class Grid
 {
@@ -36,6 +46,12 @@ public:
 	int SimilarityQuery(Trajectory &qTra, Trajectory **candTra, int candSize, float *EDRdistance);
 	static int getIdxFromXY(int x, int y);
 	int buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode *parent);
+	//rangeQuery批量
+	int rangeQueryBatch(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
+	int findMatchNodeInQuadTree(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells);
+	int rangeQueryBatchGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
+	int findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID);
+
 
 
 	//Grid索引包含的坐标范围
@@ -50,8 +66,13 @@ public:
 
 	vector<cellBasedTraj> cellBasedTrajectory; //cellbasedtrajectory，二元组：（cell编号数组地址，数组长度）
 
-	Point* allPoints;//存储所有点的数组
+	SPoint* allPoints;//存储所有点的数组
 	Point* allPointsPtrGPU;
+	DPoint *allPointsDeltaEncoding;//Delta Encoding后的点
+	RangeQueryStateTable* stateTableRange;
+	map<int, void*> nodeAddrTable;
+	int stateTableLength;
+	int nodeAddrTableLength;
 	
 
 

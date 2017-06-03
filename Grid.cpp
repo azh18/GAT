@@ -1,8 +1,9 @@
 #include "Grid.h"
-#include "cudaKernel.h"
+
 #include "WinTimer.h"
 
 extern Trajectory* tradb;
+extern void *baseAddrGPU;
 MyTimer timer;
 
 Grid::Grid()
@@ -55,9 +56,10 @@ int Grid::buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode *pa
 {
 	int totalLevel = int(log2(this->cellnum) / log2(4));
 	int totalPoints = 0;
-	for (int i = id*pow(4, (totalLevel - level)); i <= (id + 1) * pow(4, (totalLevel - level)) - 1; i++) {
+	for (int i = id*int(pow(4, (totalLevel - level))); i <= (id + 1) * int(pow(4, (totalLevel - level))) - 1; i++) {
 		totalPoints += this->cellPtr[i].totalPointNum;
 	}
+	pNode->mbb = MBB(this->cellPtr[id*int(pow(4, (totalLevel - level)))].mbb.xmin, this->cellPtr[(id + 1) * int(pow(4, (totalLevel - level))) - 1].mbb.ymin, this->cellPtr[(id + 1) * int(pow(4, (totalLevel - level))) - 1].mbb.xmax, this->cellPtr[id*int(pow(4, (totalLevel - level)))].mbb.ymax);
 	pNode->numPoints = totalPoints;
 	pNode->NodeID = id;
 	pNode->parent = parent;
@@ -84,6 +86,8 @@ int Grid::buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode *pa
 	}
 
 }
+
+
 
 Grid::Grid(const MBB& mbb,float val_cell_size)
 {
@@ -204,7 +208,7 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 	//转化为cell连续存储
 	//此处连续存储是指同一cell内的采样点存储在一起，有利于rangeQuery，但不利于similarity query
 	//similarity组装轨迹的时候，可以先记录当前是第几个subtra，找轨迹的时候从这个往后找，避免tid重复存在的问题
-	this->allPoints = (Point*)malloc(sizeof(Point)*(this->totalPointNum));
+	this->allPoints = (SPoint*)malloc(sizeof(SPoint)*(this->totalPointNum));
 	pointCount = 0;
 	for (int i = 0; i <= cellnum - 1; i++) {
 		cellPtr[i].pointRangeStart = pointCount;
@@ -213,7 +217,7 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 				allPoints[pointCount].tID = cellPtr[i].subTraTable[j].traID;
 				allPoints[pointCount].x = tradb[allPoints[pointCount].tID].points[k].lon;
 				allPoints[pointCount].y = tradb[allPoints[pointCount].tID].points[k].lat;
-				allPoints[pointCount].time = tradb[allPoints[pointCount].tID].points[k].time;
+				//allPoints[pointCount].time = tradb[allPoints[pointCount].tID].points[k].time;
 				pointCount++;
 			}
 		}
@@ -221,8 +225,26 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 		if (cellPtr[i].pointRangeEnd - cellPtr[i].pointRangeStart + 1 != cellPtr[i].totalPointNum)
 			cerr << "Grid.cpp: something wrong in total point statistic" << endl;
 	}
+	//Delta Encoding的cell连续存储
+	this->allPointsDeltaEncoding = (DPoint*)malloc(sizeof(DPoint)*(this->totalPointNum));
+	pointCount = 0;
+	for (int i = 0; i <= cellnum - 1; i++) {
+		cellPtr[i].pointRangeStart = pointCount;
+		for (int j = 0; j <= cellPtr[i].subTraNum - 1; j++) {
+			for (int k = cellPtr[i].subTraTable[j].startpID; k <= cellPtr[i].subTraTable[j].endpID; k++) {
+				allPointsDeltaEncoding[pointCount].tID = cellPtr[i].subTraTable[j].traID;
+				allPointsDeltaEncoding[pointCount].x = short(int((tradb[allPointsDeltaEncoding[pointCount].tID].points[k].lon)*1000000)-cellPtr[i].anchorPointX);
+				allPointsDeltaEncoding[pointCount].y = short(int((tradb[allPointsDeltaEncoding[pointCount].tID].points[k].lat)*1000000)-cellPtr[i].anchorPointY);
+				pointCount++;
+			}
+		}
+		cellPtr[i].pointRangeEnd = pointCount - 1;
+		if (cellPtr[i].pointRangeEnd - cellPtr[i].pointRangeStart + 1 != cellPtr[i].totalPointNum)
+			cerr << "Grid.cpp: something wrong in total point statistic" << endl;
+	}
+
 	//把生成好的allpoints放到GPU内
-	putCellDataSetIntoGPU(this->allPoints, this->allPointsPtrGPU, this->totalPointNum);
+	//putCellDataSetIntoGPU(this->allPoints, this->allPointsPtrGPU, this->totalPointNum);
 
 
 	return 0;
@@ -248,7 +270,156 @@ int Grid::writeCellsToFile(int * cellNo,int cellNum, string file)
 	return 0;
 }
 
+int Grid::rangeQueryBatch(MBB * bounds, int rangeNum, CPURangeQueryResult * ResultTable, int * resultSetSize)
+{
+	ofstream out("queryResult.txt", ios::out);
+	ResultTable = (CPURangeQueryResult*)malloc(sizeof(CPURangeQueryResult));
+	ResultTable->traid = -1; //table开头traid为-1 flag
+	ResultTable->next = NULL;
+	resultSetSize = (int*)malloc(sizeof(int)*rangeNum);
+	CPURangeQueryResult* newResult, *nowResult;
+	nowResult = ResultTable;
+	int totalLevel = int(log2(this->cellnum) / log2(4));
+	for (int i = 0; i <= rangeNum - 1; i++) {
+		//int candidateNodeNum = 0;
+		resultSetSize[i] = 0;
+		vector<QuadtreeNode*> cells;
+		findMatchNodeInQuadTree(this->root, bounds[i], &cells);
+		for (vector<QuadtreeNode*>::iterator iterV = cells.begin(); iterV != cells.end(); iterV++) {
+			int nodeID = (*iterV)->NodeID;
+			int nodeLevel = (*iterV)->level;
+			int firstCellID = nodeID*int(pow(4, (totalLevel - nodeLevel)));
+			int lastCellID = (nodeID + 1) * int(pow(4, (totalLevel - nodeLevel))) - 1;
+			for (int cellID = firstCellID; cellID <= lastCellID; cellID++) {
+				int anchorX = this->cellPtr[cellID].anchorPointX;
+				int anchorY = this->cellPtr[cellID].anchorPointY;
+				for (int idx = this->cellPtr[cellID].pointRangeStart; idx <= this->cellPtr[cellID].pointRangeEnd; idx++) {
+					//compress
+					//float realX = float(allPointsDeltaEncoding[idx].x + anchorX) / 1000000;
+					//float realY = float(allPointsDeltaEncoding[idx].y + anchorY) / 1000000;
+					// no compress
+					float realX = allPoints[idx].x;
+					float realY = allPoints[idx].y;
+					if (bounds[i].pInBox(realX, realY))
+					{
+						newResult = (CPURangeQueryResult*)malloc(sizeof(CPURangeQueryResult));
+						if (newResult == NULL)
+							return 2; //分配内存失败
+						//compress
+						//newResult->traid = allPointsDeltaEncoding[idx].tID;
+						//no compress
+						newResult->traid = allPoints[idx].tID;
+						newResult->x = realX;
+						newResult->y = realY;
+						out << "Qid:" << i << "......." << newResult->x << "," << newResult->y << endl;
+						newResult->next = NULL;
+						nowResult->next = newResult;
+						nowResult = newResult;
+						resultSetSize[i]++;
 
+					}
+				}
+			}
+
+		}
+	}
+	out.close();
+	return 0;
+}
+
+int Grid::findMatchNodeInQuadTree(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells)
+{
+	if (node->isLeaf) {
+		cells->push_back(node);
+	}
+	else
+	{
+		if (bound.intersect(node->UL->mbb))
+			findMatchNodeInQuadTree(node->UL, bound, cells);
+		if (bound.intersect(node->UR->mbb))
+			findMatchNodeInQuadTree(node->UR, bound, cells);
+		if (bound.intersect(node->DL->mbb))
+			findMatchNodeInQuadTree(node->DL, bound, cells);
+		if (bound.intersect(node->DR->mbb))
+			findMatchNodeInQuadTree(node->DR, bound, cells);
+	}
+	return 0;
+}
+
+
+
+int Grid::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * ResultTable, int * resultSetSize)
+{
+	// 分配GPU内存
+
+	// 参数随便设置的，可以再调
+
+	RangeQueryStateTable *stateTableAllocate = (RangeQueryStateTable*)malloc(sizeof(RangeQueryStateTable) * 10000);
+	this->stateTableRange = stateTableAllocate;
+	this->stateTableLength = 0;
+	this->nodeAddrTableLength = 0;
+	// for each query, generate the nodes:
+	cudaStream_t stream;
+	cudaStreamCreate(&stream);
+	for (int i = 0; i <= rangeNum - 1; i++) {
+		findMatchNodeInQuadTreeGPU(root, bounds[i], NULL, stream, i);
+		int k = i + 3;
+		printf("%d", k);
+	}
+	//交给GPU进行并行查询
+	//先传递stateTable
+	RangeQueryStateTable* stateTableGPU = NULL;
+	CUDA_CALL(cudaMalloc((void**)&stateTableGPU, sizeof(RangeQueryStateTable)*this->stateTableLength));
+	CUDA_CALL(cudaMemcpyAsync(stateTableGPU, stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength, cudaMemcpyHostToDevice, stream));
+	//传递完成，开始调用kernel查询
+
+
+	//查询结束，善后，清空stateTable，清空gpu等
+	this->stateTableRange = stateTableAllocate;
+	return 0;
+}
+
+int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID)
+{
+	int totalLevel = int(log2(this->cellnum) / log2(4));
+	if (node->isLeaf) {
+		int startCellID = node->NodeID*int(pow(4, (totalLevel - node->level)));
+		int startIdx = this->cellPtr[startCellID].pointRangeStart;
+		int pointNum = node->numPoints;
+		//如果gpu内存中没有该node的信息
+		if (this->nodeAddrTable.find(startCellID) == this->nodeAddrTable.end()) {
+			CUDA_CALL(cudaMemcpyAsync(baseAddrGPU, &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
+			this->stateTableRange->ptr = baseAddrGPU;
+			this->nodeAddrTable.insert(pair<int, void*>(startCellID, baseAddrGPU));
+			baseAddrGPU = (void*)((char*)baseAddrGPU + pointNum*sizeof(SPoint));
+		}
+		//如果有，不再复制，直接用
+		else {
+			this->stateTableRange->ptr = this->nodeAddrTable.find(startCellID)->second;
+		}
+		
+		this->stateTableRange->xmin = bound.xmin;
+		this->stateTableRange->xmax = bound.xmax;
+		this->stateTableRange->ymin = bound.ymin;
+		this->stateTableRange->ymax = bound.ymax;
+		this->stateTableRange->candidatePointNum = pointNum;
+		this->stateTableRange->queryID = queryID;
+		this->stateTableRange = this->stateTableRange + 1;
+		this->stateTableLength = this->stateTableLength + 1;
+	}
+	else
+	{
+		if (bound.intersect(node->UL->mbb))
+			findMatchNodeInQuadTreeGPU(node->UL, bound, cells, stream, queryID);
+		if (bound.intersect(node->UR->mbb))
+			findMatchNodeInQuadTreeGPU(node->UR, bound, cells, stream, queryID);
+		if (bound.intersect(node->DL->mbb))
+			findMatchNodeInQuadTreeGPU(node->DL, bound, cells, stream, queryID);
+		if (bound.intersect(node->DR->mbb))
+			findMatchNodeInQuadTreeGPU(node->DR, bound, cells, stream, queryID);
+	}
+	return 0;
+}
 
 //int Grid::rangeQuery(MBB & bound, int * ResultTraID, SamplePoint ** ResultTable,int* resultSetSize,int* resultTraLength)
 //需要重写，因为编码规则改变

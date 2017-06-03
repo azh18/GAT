@@ -14,9 +14,7 @@
 
 
 
-#define CUDA_CALL(x) { const cudaError_t a = (x); if (a!= cudaSuccess) { printf("\nCUDA Error: %s(err_num=%d)\n", cudaGetErrorString(a), a); cudaDeviceReset(); assert(0);}}
 
-#define getLastCudaError(msg)      __getLastCudaError (msg, __FILE__, __LINE__)
 
 inline void __getLastCudaError(const char *errorMessage, const char *file, const int line)
 {
