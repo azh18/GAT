@@ -18,5 +18,5 @@ int putCellDataSetIntoGPU(Point* pointsPtr, Point*& pointsPtrGPU, int pointNum);
 
 int handleEDRdistance(SPoint *queryTra, SPoint **candidateTra, int candidateNum, int queryLength, int *candidateLength, int *result);
 void CUDAwarmUp();
-int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, std::vector<RangeQueryResultGPU>* result, int maxPointNum
+int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, std::vector<uint8_t>* result, int maxPointNum
 	, cudaStream_t stream);

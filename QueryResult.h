@@ -9,8 +9,8 @@ struct CPURangeQueryResult
 };
 
 typedef struct RangeQueryResultGPU {
-	int jobID;
-	int idx; //在candidate中第几个，以便传回去后查找
+	short jobID;
+	short idx; //在candidate中第几个，以便传回去后查找
 }RangeQueryResultGPU;
 class QueryResult
 {

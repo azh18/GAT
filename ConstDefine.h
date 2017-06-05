@@ -5,7 +5,7 @@
 #define MAXGAP 3600
 
 #define EPSILON 10
-#define MAXTHREAD 512
+#define MAXTHREAD 256
 
 //每个node内包含的点的个数上限
 #define MAXPOINTINNODE 1000
@@ -55,4 +55,5 @@ typedef struct RangeQueryStateTable {
 	float xmax;
 	float ymax;
 	int queryID;
+	int startIdxInAllPoints;
 }RangeQueryStateTable;
