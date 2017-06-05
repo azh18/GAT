@@ -55,24 +55,24 @@ int main()
 	int* resultSize;
 	for (int i = 0; i <= 999;i++)
 		mbbArray[i] = MBB(121.4, 31.15, 121.6, 31.25);
-	g->rangeQueryBatch(mbbArray, 1000, resultTable, resultSize);
+	//g->rangeQueryBatch(mbbArray, 1000, resultTable, resultSize);
 	
-	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 1024 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
 	g->rangeQueryBatchGPU(mbbArray, 1000, resultTable, resultSize);
 
-	g->rangeQuery(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
-	g->rangeQueryGPU(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
+	//g->rangeQuery(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
+	//g->rangeQueryGPU(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
 
 	/*
 	≤‚ ‘EDR DistanceµƒGPU∞Ê±æ
 	17.3.28
 	*/
-	Trajectory **testTra = (Trajectory**)malloc(sizeof(Trajectory*) * 5000);
-	for (int i = 2; i <= 5001; i++) {
-		testTra[i-2] = &tradb[i];
-	}
-	float *EDRdistance = (float*)malloc(sizeof(float) * 5000);
-	g->SimilarityQuery(tradb[2], testTra, 5000, EDRdistance);
+	//Trajectory **testTra = (Trajectory**)malloc(sizeof(Trajectory*) * 5000);
+	//for (int i = 2; i <= 5001; i++) {
+	//	testTra[i-2] = &tradb[i];
+	//}
+	//float *EDRdistance = (float*)malloc(sizeof(float) * 5000);
+	//g->SimilarityQuery(tradb[2], testTra, 5000, EDRdistance);
 	/*
 	≤‚ ‘
 	*/

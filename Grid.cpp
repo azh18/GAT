@@ -311,7 +311,7 @@ int Grid::rangeQueryBatch(MBB * bounds, int rangeNum, CPURangeQueryResult * Resu
 						newResult->traid = allPoints[idx].tID;
 						newResult->x = realX;
 						newResult->y = realY;
-						out << "Qid:" << i << "......." << newResult->x << "," << newResult->y << endl;
+						// out << "Qid:" << i << "......." << newResult->x << "," << newResult->y << endl;
 						newResult->next = NULL;
 						nowResult->next = newResult;
 						nowResult = newResult;
@@ -354,7 +354,7 @@ int Grid::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * R
 
 	// 参数随便设置的，可以再调
 
-	RangeQueryStateTable *stateTableAllocate = (RangeQueryStateTable*)malloc(sizeof(RangeQueryStateTable) * 10000);
+	RangeQueryStateTable *stateTableAllocate = (RangeQueryStateTable*)malloc(sizeof(RangeQueryStateTable) * 100000);
 	this->stateTableRange = stateTableAllocate;
 	this->stateTableLength = 0;
 	this->nodeAddrTableLength = 0;
@@ -363,15 +363,25 @@ int Grid::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * R
 	cudaStreamCreate(&stream);
 	for (int i = 0; i <= rangeNum - 1; i++) {
 		findMatchNodeInQuadTreeGPU(root, bounds[i], NULL, stream, i);
-		int k = i + 3;
-		printf("%d", k);
+	}
+	//stateTable中点的数目的最大值
+	int maxPointNum = 0;
+	for (int i = 0; i <= stateTableLength - 1; i++) {
+		if (stateTableAllocate[i].candidatePointNum > maxPointNum)
+			maxPointNum = stateTableAllocate[i].candidatePointNum;
 	}
 	//交给GPU进行并行查询
 	//先传递stateTable
 	RangeQueryStateTable* stateTableGPU = NULL;
 	CUDA_CALL(cudaMalloc((void**)&stateTableGPU, sizeof(RangeQueryStateTable)*this->stateTableLength));
-	CUDA_CALL(cudaMemcpyAsync(stateTableGPU, stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength, cudaMemcpyHostToDevice, stream));
+	CUDA_CALL(cudaMemcpyAsync(stateTableGPU, stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength,
+		cudaMemcpyHostToDevice, stream));
 	//传递完成，开始调用kernel查询
+	vector<RangeQueryResultGPU> resultsReturned;
+	cudaRangeQueryTestHandler(stateTableGPU, stateTableLength, &resultsReturned, maxPointNum, stream);
+	for (vector<RangeQueryResultGPU>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
+		cout << iter->idx << iter->jobID << endl;
+	}
 
 
 	//查询结束，善后，清空stateTable，清空gpu等

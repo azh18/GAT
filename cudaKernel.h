@@ -3,6 +3,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <assert.h>
+#include <vector>
 
 //调用CUDA，传递point地址、point数量、查询的mbb、结果地址、结果数量
 
@@ -17,3 +18,5 @@ int putCellDataSetIntoGPU(Point* pointsPtr, Point*& pointsPtrGPU, int pointNum);
 
 int handleEDRdistance(SPoint *queryTra, SPoint **candidateTra, int candidateNum, int queryLength, int *candidateLength, int *result);
 void CUDAwarmUp();
+int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, std::vector<RangeQueryResultGPU>* result, int maxPointNum
+	, cudaStream_t stream);

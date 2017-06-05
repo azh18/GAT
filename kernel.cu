@@ -72,6 +72,48 @@ __global__ void cudaRangeQuery(int* rangeStarts, int* rangeEnds, int candidateCe
 			resultPtrCuda[resultOffset[cellNo] + i].tID = -1;
 	}
 }
+
+__global__ void cudaRangeQueryTest(RangeQueryStateTable* stateTable, int stateTableLength, RangeQueryResultGPU* result, 
+	int maxPointNumInStateTable) {
+	int bID = blockIdx.x;
+	int tID = threadIdx.x;
+	__shared__ RangeQueryStateTable sharedStateTable;
+	sharedStateTable = (stateTable[bID]);
+	SPoint *baseAddr = (SPoint*)(sharedStateTable.ptr);
+	int candidateNum = sharedStateTable.candidatePointNum;//该block的需要查询的点的个数
+	int resultOffset = bID*maxPointNumInStateTable; //该block的结果的起始地址
+	for (int i = 0; i <= candidateNum / THREAD_N-1; i++) {
+		SPoint p = *(baseAddr + (i*THREAD_N + tID));
+		result[i*THREAD_N + tID + resultOffset].idx = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) &&
+			(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))*(i*THREAD_N + tID);//如果验证通过，则该值为本身编号，否则为0
+		result[i*THREAD_N + tID + resultOffset].jobID = bID;
+		//__syncthreads();
+	}
+	if (tID < candidateNum - candidateNum / THREAD_N * THREAD_N) {
+		SPoint p = *(baseAddr + (candidateNum / THREAD_N * THREAD_N + tID));
+		result[candidateNum / THREAD_N * THREAD_N + tID + resultOffset].idx = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) &&
+			(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))*(candidateNum / THREAD_N * THREAD_N + tID);//如果验证通过，则该值为本身编号，否则为0
+		result[candidateNum / THREAD_N * THREAD_N + tID + resultOffset].jobID = bID;
+	}
+	else {
+		result[candidateNum / THREAD_N * THREAD_N + tID + resultOffset].idx = 0; //多出来的部分，直接设为无效即可
+	}
+	//__syncthreads();
+}
+
+int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, std::vector<RangeQueryResultGPU>* result, int maxPointNum
+	, cudaStream_t stream) {
+	RangeQueryResultGPU* resultGPU;
+	//多分配一点内存，每个stateTable项占据的内存数相等
+	CUDA_CALL(cudaMalloc((void**)&resultGPU, maxPointNum*stateTableLength*sizeof(RangeQueryResultGPU)));
+	cudaRangeQueryTest <<<stateTableLength, THREAD_N,0, stream >>>(stateTableGPU, stateTableLength, resultGPU, maxPointNum);
+	CUDA_CALL(cudaDeviceSynchronize());
+	thrust::device_ptr<RangeQueryResultGPU> resultsPtr(resultGPU);
+	result->resize(maxPointNum*stateTableLength);
+	thrust::copy(resultsPtr, resultsPtr + maxPointNum*stateTableLength, result->begin());
+	return 0;
+}
+
 int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds, int candidateCellNum,float xmin, float ymin, float xmax, float ymax, Point*& resultsGPU, int& resultNum,Point *pointsPtrGPU,Point *&result) {
 	//第一个参数暂时没有用，注意这里candidatecells[i]已经不再是cell的id，由于只存非空
 	//第四个参数表示非空的cell个数

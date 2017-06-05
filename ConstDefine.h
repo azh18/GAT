@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string>
 #include <math.h>
+#include "QueryResult.h"
 
 //test:ÒÔcellÎª»ù´¡´æ´¢
 #define _CELL_BASED_STORAGE
