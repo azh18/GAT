@@ -36,7 +36,7 @@ int main()
 	//lat2 = +35.15221;
 	//lon2 = +113.10222;
 	//cout << calculateDistance(lat1, lon1, lat2, lon2) << endl;
-	PreProcess pp("SH_1.txt", "dataout.txt");
+	PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.003);
@@ -54,17 +54,17 @@ int main()
 	int RangeQueryResultSize = 0;
 	MBB mbbArray[1000];
 	int* resultSize = NULL;
-	for (int i = 0; i <= 100;i++)
-		mbbArray[i] = MBB(121.1, 31.1, 121.7, 31.6);
+	for (int i = 0; i <= 1000;i++)
+		mbbArray[i] = MBB(121.1, 31.1, 121.3, 31.3);
 	MyTimer timer;
 	timer.start();
-	g->rangeQueryBatch(mbbArray, 1, resultTable, resultSize);
+	g->rangeQueryBatch(mbbArray, 1000, resultTable, resultSize);
 	timer.stop();
 	cout << "CPU Time:" << timer.elapse() << "ms" << endl;
 	
 	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
 	timer.start();
-	g->rangeQueryBatchGPU(mbbArray, 1, resultTable, resultSize);
+	g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
 	timer.stop();
 	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
 	//g->rangeQuery(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);

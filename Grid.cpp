@@ -187,6 +187,7 @@ int Grid::WhichCellPointIn(SamplePoint p)
 
 int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 {
+	this->trajNum = traNum;
 	//注意，轨迹编号从1开始
 	this->cellBasedTrajectory.resize(traNum + 1); //扩大cellbasedtraj的规模，加轨迹的时候可以直接用
 	int pointCount = 0;
@@ -355,9 +356,9 @@ int Grid::findMatchNodeInQuadTree(QuadtreeNode *node, MBB& bound, vector<Quadtre
 int Grid::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * ResultTable, int * resultSetSize)
 {
 	// 分配GPU内存
-	MyTimer timer;
+	//MyTimer timer;
 	// 参数随便设置的，可以再调
-	timer.start();
+	//timer.start();
 
 	RangeQueryStateTable *stateTableAllocate = (RangeQueryStateTable*)malloc(sizeof(RangeQueryStateTable) * 1000000);
 	this->stateTableRange = stateTableAllocate;
@@ -377,40 +378,47 @@ int Grid::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * R
 	}
 	//交给GPU进行并行查询
 	//先传递stateTable
-	timer.stop();
+	//timer.stop();
 	//cout << "Time 1:" << timer.elapse() << "ms" << endl;
 
-	timer.start();
+	//timer.start();
 	RangeQueryStateTable* stateTableGPU = NULL;
 	CUDA_CALL(cudaMalloc((void**)&stateTableGPU, sizeof(RangeQueryStateTable)*this->stateTableLength));
 	CUDA_CALL(cudaMemcpyAsync(stateTableGPU, stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength,
 		cudaMemcpyHostToDevice, stream));
 	//传递完成，开始调用kernel查询
-	vector<uint8_t> resultsReturned;
+	uint8_t* resultsReturned = (uint8_t*)malloc(sizeof(uint8_t)*(this->trajNum+1)*rangeNum);
 
-	timer.stop();
+	//timer.stop();
 	//cout << "Time 2:" << timer.elapse() << "ms" << endl;
 
-	timer.start();
-	cudaRangeQueryTestHandler(stateTableGPU, stateTableLength, &resultsReturned, maxPointNum, stream);
-	for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
-		//cout << (*iter) << endl;
-		//printf("%d\n", *iter);
-	}
-	timer.stop();
+	//timer.start();
+	cudaRangeQueryTestHandler(stateTableGPU, stateTableLength, resultsReturned,this->trajNum+1,rangeNum, stream);
+	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
+	//	for (int traID = 0; traID <= this->trajNum; traID++) {
+	//		if (resultsReturned[jobID*(this->trajNum + 1) + traID] == 1) {
+	//			cout << "job " << jobID << "find" << traID << endl;
+	//		}
+	//	}
+	//}
+	//for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
+	//	//cout << (*iter) << endl;
+	//	//printf("%d\n", *iter);
+	//}
+	//timer.stop();
 	//cout << "Time 3:" << timer.elapse() << "ms" << endl;
 
-	FILE *fp = fopen("resultQuery.txt", "w+");
-	for (int i = 0; i <= stateTableLength - 1; i++) {
-		for (int j = 0; j <= stateTableAllocate[i].candidatePointNum - 1; j++) {
+	//FILE *fp = fopen("resultQuery.txt", "w+");
+	//for (int i = 0; i <= stateTableLength - 1; i++) {
+	//	for (int j = 0; j <= stateTableAllocate[i].candidatePointNum - 1; j++) {
 
-			if ((resultsReturned[i*maxPointNum + j]) == (uint8_t)(1)) {
-				fprintf(fp,"%d\n", stateTableAllocate[i].startIdxInAllPoints + j);
-				fprintf(fp,"%f,%f\n", allPoints[stateTableAllocate[i].startIdxInAllPoints + j].x, allPoints[stateTableAllocate[i].startIdxInAllPoints + j].y);
-			}
+	//		if ((resultsReturned[i*maxPointNum + j]) == (uint8_t)(1)) {
+	//			fprintf(fp,"%d\n", stateTableAllocate[i].startIdxInAllPoints + j);
+	//			fprintf(fp,"%f,%f\n", allPoints[stateTableAllocate[i].startIdxInAllPoints + j].x, allPoints[stateTableAllocate[i].startIdxInAllPoints + j].y);
+	//		}
 
-		}
-	}
+	//	}
+	//}
 		//查询结束，善后，清空stateTable，清空gpu等
 		this->stateTableRange = stateTableAllocate;
 		return 0;

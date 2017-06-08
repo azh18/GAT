@@ -62,6 +62,7 @@ public:
 	Cell* cellPtr; //存储cell的入口
 	ofstream fout;//文件输出接口
 	int totalPointNum; //grid内点个数
+	int trajNum;
 	QuadtreeNode *root;
 
 	vector<cellBasedTraj> cellBasedTrajectory; //cellbasedtrajectory，二元组：（cell编号数组地址，数组长度）
