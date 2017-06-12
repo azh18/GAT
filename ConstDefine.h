@@ -1,6 +1,6 @@
 #pragma once
-#define MAX_TRAJ_SIZE 100000
-#define MAXLENGTH 512
+#define MAX_TRAJ_SIZE 50000
+#define MAXLENGTH 4096
 //MAXGAP是最大轨迹内时间间隔，如果超过这个间隔应该被视为两条轨迹
 #define MAXGAP 3600
 
@@ -57,3 +57,6 @@ typedef struct RangeQueryStateTable {
 	int queryID;
 	int startIdxInAllPoints;
 }RangeQueryStateTable;
+
+int getIdxFromXY(int x, int y);
+

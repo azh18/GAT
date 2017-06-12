@@ -44,13 +44,14 @@ public:
 	int rangeQuery(MBB & bound, CPURangeQueryResult * ResultTable, int* resultSetSize);
 	int rangeQueryGPU(MBB & bound, CPURangeQueryResult * ResultTable, int* resultSetSize);
 	int SimilarityQuery(Trajectory &qTra, Trajectory **candTra, int candSize, float *EDRdistance);
-	static int getIdxFromXY(int x, int y);
 	int buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode *parent);
 	//rangeQuery≈˙¡ø
 	int rangeQueryBatch(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
 	int findMatchNodeInQuadTree(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells);
 	int rangeQueryBatchGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
 	int findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID);
+	//SimilarityQuery
+	int SimilarityQueryBatch(Trajectory *qTra, int queryTrajNum, int *EDRdistance);
 
 
 
