@@ -191,7 +191,7 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 {
 	this->trajNum = traNum;
 	//生成frequency vector
-	this->freqVectors.initFVTable(traNum+1);
+	this->freqVectors.initFVTable(traNum+1,this->cellnum);
 	//注意，轨迹编号从1开始
 	this->cellBasedTrajectory.resize(traNum + 1); //扩大cellbasedtraj的规模，加轨迹的时候可以直接用
 	int pointCount = 0;
@@ -501,8 +501,9 @@ int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<Quad
 	return 0;
 }
 
-int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * EDRdistance)
+int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * topKSimilarityTraj, int kValue)
 {
+	//思路：分别处理每一条查询轨迹，用不同stream并行
 	priority_queue<FDwithID, vector<FDwithID>, cmp> *queryQueue = new priority_queue<FDwithID, vector<FDwithID>, cmp>[queryTrajNum];
 	map<int, int> *freqVectors = new map<int, int>[queryTrajNum];
 	//为查询构造freqVector
@@ -522,36 +523,94 @@ int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * EDRdis
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
 		this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
 	}
+
+	//用一个优先队列存储当前最优结果，大顶堆，保证随时可以pop出差的结果
+	priority_queue<FDwithID, vector<FDwithID>, cmpBig> *EDRCalculated = new priority_queue<FDwithID, vector<FDwithID>, cmpBig>[queryTrajNum];
+	int *numElemInCalculatedQueue = new int[queryTrajNum]; //保存当前优先队列结果，保证优先队列大小不大于kValue
+	for (int i = 0; i <= queryTrajNum - 1; i++)
+		numElemInCalculatedQueue[i] = 0;
+
 	//准备好之后，开始做查询
 	const int k = 20;
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
+		SPoint *queryTra = (SPoint*)malloc(sizeof(SPoint)*qTra[qID].length);
+		for (int i = 0; i <= qTra[qID].length - 1; i++) {
+			queryTra[i].x = qTra[qID].points[i].lon;
+			queryTra[i].y = qTra[qID].points[i].lat;
+		}
 		int worstNow = 9999999;
+		//printf("qID:%d", qID);
 		while (worstNow > queryQueue[qID].top().FD) {
 			int candidateTrajID[k];
+			//printf("%d", worstNow);
 			//提取topk
 			for (int i = 0; i <= k - 1; i++) {
 				candidateTrajID[i] = queryQueue[qID].top().traID;
+				//printf("%d,%d\t", queryQueue[qID].top().traID,queryQueue[qID].top().FD);
 				queryQueue[qID].pop();
 			}
 			//EDR calculate
+			//第一步：从AllPoints里提取出来轨迹
+			SPoint **candidateTra = (SPoint**)malloc(sizeof(SPoint*)*k);
+			int *candidateTraLength = (int*)malloc(sizeof(int)*k);
 			for (int i = 0; i <= k - 1; i++) {
-				//第一步：从AllPoints里提取出来轨迹
-				SPoint *queryTra = (SPoint*)malloc(sizeof(SPoint)*this->cellBasedTrajectory[candidateTrajID[i]].trajLength);
+				candidateTra[i] = (SPoint*)malloc(sizeof(SPoint)*this->cellBasedTrajectory[candidateTrajID[i]].trajLength);
+				SPoint *tempPtr = candidateTra[i];
 				for (int subID = 0; subID <= this->cellBasedTrajectory[candidateTrajID[i]].length - 1; subID++) {
 					int idxInAllPoints = this->cellBasedTrajectory[candidateTrajID[i]].startIdx[subID];
-					memcpy(queryTra, &this->allPoints[idxInAllPoints], this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
-					queryTra += this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID];
+					memcpy(tempPtr, &this->allPoints[idxInAllPoints], sizeof(SPoint)*this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
+					//for (int cnt = 0; cnt <= this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID] - 1; cnt++) {
+					//	candidateTra[i][cnt] = this->allPoints[idxInAllPoints+cnt];
+					//}
+					//printf("%d ", this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
+					tempPtr += this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID];
 				}
-
-				//第二步：计算EDR
-
-
-				//更新worstNow
+				candidateTraLength[i] = this->cellBasedTrajectory[candidateTrajID[i]].trajLength;
 			}
+			//第二步：计算EDR
+			int resultReturned[k];
+			this->SimilarityExecuter(queryTra, candidateTra, qTra[qID].length, candidateTraLength, k, resultReturned);
+			//更新worstNow
+			for (int i = 0; i <= k - 1; i++) {
+				if (numElemInCalculatedQueue[qID] < kValue) {
+					//直接往PQ里加
+					FDwithID fd;
+					fd.traID = candidateTrajID[i];
+					fd.FD = resultReturned[i];
+					EDRCalculated[qID].push(fd);
+					numElemInCalculatedQueue[i]++;
+				}
+				else {
+					//看一下是否比PQ里更好，如果是弹出一个差的，换进去一个好的；否则不动优先队列也不更新worstNow。
+					int worstInPQ = EDRCalculated[qID].top().FD;
+					if (resultReturned[i] < worstInPQ) {
+						EDRCalculated[qID].pop();
+						FDwithID fd;
+						fd.traID = candidateTrajID[i];
+						fd.FD = resultReturned[i];
+						EDRCalculated[qID].push(fd);
+					}
+				}
+			}
+			worstNow = EDRCalculated[qID].top().FD;
+			printf("%d,worstNow:%d\t", qID,worstNow);
+			//该轮结束，释放内存
+			for (int i = 0; i <= k - 1; i++)
+				free(candidateTra[i]);
+			free(candidateTraLength);
+			free(candidateTra);
 
 		}
-
+		free(queryTra);
+		for (int i = 0; i <= kValue - 1; i++) {
+			topKSimilarityTraj[qID*kValue + i] = EDRCalculated[qID].top().traID;
+			EDRCalculated[qID].pop();
+		}
 	}
+	delete[] EDRCalculated;
+	delete[] numElemInCalculatedQueue;
+	delete[] freqVectors;
+	delete[] queryQueue;
 
 	return 0;
 }

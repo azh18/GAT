@@ -39,7 +39,7 @@ int main()
 	PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
-	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.003);
+	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.004);
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	//delete[] tradb;
 	int count = 0;
@@ -68,6 +68,14 @@ int main()
 	g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
 	timer.stop();
 	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
+	int* simiResult = new int[10 * 20];
+	g->SimilarityQueryBatch(&tradb[20], 20, simiResult,10);
+	for (int i = 0; i <= 19; i++) {
+		cout << "Trajectory:" << i << endl;
+		for (int j = 0; j <= 9; j++) {
+			cout << simiResult[i * 10 + j] << "\t" << endl;
+		}
+	}
 	//g->rangeQuery(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
 	//g->rangeQueryGPU(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
 

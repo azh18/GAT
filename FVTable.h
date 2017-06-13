@@ -8,12 +8,18 @@ using namespace std;
 
 typedef struct FDwithID {
 	int traID;
-	double FD;
+	int FD;
 }FDwithID;
 
 struct cmp {
 	bool operator()(FDwithID a, FDwithID b) {
 		return(a.FD > b.FD);
+	}
+};
+
+struct cmpBig {
+	bool operator()(FDwithID a, FDwithID b) {
+		return(a.FD < b.FD);
 	}
 };
 
@@ -24,7 +30,7 @@ public:
 	int trajNum; //总共的轨迹的数量
 	int cellNum; //cell的个数
 
-	int initFVTable(int trajNum);
+	int initFVTable(int trajNum, int cellNum);
 	int addPointToFVTable(int trajID, int pointNum, int cellID);
 	int getCandidate(int lowerBound, int k, map<int, int>* freqVectorQ, int *candidateTrajID, int *candidateNum);
 	double calculateFreqDist(int *freqVectorQ, int trajID);

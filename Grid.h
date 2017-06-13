@@ -52,7 +52,7 @@ public:
 	int rangeQueryBatchGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
 	int findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID);
 	//SimilarityQuery
-	int SimilarityQueryBatch(Trajectory *qTra, int queryTrajNum, int *EDRdistance);
+	int SimilarityQueryBatch(Trajectory *qTra, int queryTrajNum, int *EDRdistance, int kValue);
 	int SimilarityExecuter(SPoint* queryTra, SPoint** candidateTra, int queryLength, int* candidateLength, int candSize, int *resultArray);
 
 

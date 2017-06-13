@@ -4,7 +4,7 @@
 //MAXGAP是最大轨迹内时间间隔，如果超过这个间隔应该被视为两条轨迹
 #define MAXGAP 3600
 
-#define EPSILON 10
+#define EPSILON 0.001
 #define MAXTHREAD 256
 
 //每个node内包含的点的个数上限
