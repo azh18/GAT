@@ -124,7 +124,7 @@ int Grid::addTrajectoryIntoCell(Trajectory &t)
 	vector<int> *tempCellBasedTraj = new vector<int>;
 	tempCellBasedTraj->reserve(1048577);
 	int tempCellNum = 0;
-	for (int i = 1; i <= t.length - 1; i++) {
+	for (int i = 0; i <= t.length - 1; i++) {
 		p = t.points[i];
 		nowCellNo = WhichCellPointIn(p);
 		if (i == t.length - 1)
@@ -135,6 +135,7 @@ int Grid::addTrajectoryIntoCell(Trajectory &t)
 				tempCellNum++;
 				tempCellBasedTraj->push_back(nowCellNo);
 				cellPtr[nowCellNo].addSubTra(t.tid, lastCellStartIdx, i, i - lastCellStartIdx + 1);
+				this->freqVectors.addPointToFVTable(t.tid, i - lastCellStartIdx + 1, nowCellNo);
 			}
 			//否则，上一个和这个cell都要添加
 			else
@@ -143,7 +144,9 @@ int Grid::addTrajectoryIntoCell(Trajectory &t)
 				tempCellBasedTraj->push_back(lastCellNo);
 				tempCellBasedTraj->push_back(nowCellNo);
 				cellPtr[lastCellNo].addSubTra(t.tid, lastCellStartIdx, i - 1, i - 1 - lastCellStartIdx + 1);
+				this->freqVectors.addPointToFVTable(t.tid, i - 1 - lastCellStartIdx + 1, lastCellNo);
 				cellPtr[nowCellNo].addSubTra(t.tid, i, i, 1);
+				this->freqVectors.addPointToFVTable(t.tid, 1, nowCellNo);
 			}
 		}
 		else
@@ -158,6 +161,7 @@ int Grid::addTrajectoryIntoCell(Trajectory &t)
 				tempCellBasedTraj->push_back(lastCellNo);
 				//SubTra添加
 				cellPtr[lastCellNo].addSubTra(t.tid, lastCellStartIdx, i - 1, i - 1 - lastCellStartIdx + 1);
+				this->freqVectors.addPointToFVTable(t.tid, i - 1 - lastCellStartIdx + 1, lastCellNo);
 				lastCellNo = nowCellNo;
 				lastCellStartIdx = i;
 			}
@@ -169,6 +173,7 @@ int Grid::addTrajectoryIntoCell(Trajectory &t)
 	for (int i = 0; i <= tempCellNum - 1; i++) {
 		this->cellBasedTrajectory[t.tid].cellNo[i] = tempCellBasedTraj->at(i);
 	}
+	this->cellBasedTrajectory[t.tid].trajLength = t.length;
 	delete tempCellBasedTraj;
 	return 0;
 }
@@ -185,6 +190,8 @@ int Grid::WhichCellPointIn(SamplePoint p)
 int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 {
 	this->trajNum = traNum;
+	//生成frequency vector
+	this->freqVectors.initFVTable(traNum+1);
 	//注意，轨迹编号从1开始
 	this->cellBasedTrajectory.resize(traNum + 1); //扩大cellbasedtraj的规模，加轨迹的时候可以直接用
 	int pointCount = 0;
@@ -208,9 +215,13 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 	//similarity组装轨迹的时候，可以先记录当前是第几个subtra，找轨迹的时候从这个往后找，避免tid重复存在的问题
 	this->allPoints = (SPoint*)malloc(sizeof(SPoint)*(this->totalPointNum));
 	pointCount = 0;
+
+
 	for (int i = 0; i <= cellnum - 1; i++) {
 		cellPtr[i].pointRangeStart = pointCount;
 		for (int j = 0; j <= cellPtr[i].subTraNum - 1; j++) {
+			//for each subTra, add Points to AllPoints
+			cellPtr[i].subTraTable[j].idxInAllPointsArray = pointCount;
 			for (int k = cellPtr[i].subTraTable[j].startpID; k <= cellPtr[i].subTraTable[j].endpID; k++) {
 				allPoints[pointCount].tID = cellPtr[i].subTraTable[j].traID;
 				allPoints[pointCount].x = tradb[allPoints[pointCount].tID].points[k].lon;
@@ -223,23 +234,48 @@ int Grid::addDatasetToGrid(Trajectory * db, int traNum)
 		if (cellPtr[i].pointRangeEnd - cellPtr[i].pointRangeStart + 1 != cellPtr[i].totalPointNum)
 			cerr << "Grid.cpp: something wrong in total point statistic" << endl;
 	}
-	//Delta Encoding的cell连续存储
-	this->allPointsDeltaEncoding = (DPoint*)malloc(sizeof(DPoint)*(this->totalPointNum));
-	pointCount = 0;
-	for (int i = 0; i <= cellnum - 1; i++) {
-		cellPtr[i].pointRangeStart = pointCount;
-		for (int j = 0; j <= cellPtr[i].subTraNum - 1; j++) {
-			for (int k = cellPtr[i].subTraTable[j].startpID; k <= cellPtr[i].subTraTable[j].endpID; k++) {
-				allPointsDeltaEncoding[pointCount].tID = cellPtr[i].subTraTable[j].traID;
-				allPointsDeltaEncoding[pointCount].x = short(int((tradb[allPointsDeltaEncoding[pointCount].tID].points[k].lon)*1000000)-cellPtr[i].anchorPointX);
-				allPointsDeltaEncoding[pointCount].y = short(int((tradb[allPointsDeltaEncoding[pointCount].tID].points[k].lat)*1000000)-cellPtr[i].anchorPointY);
-				pointCount++;
+	//完善CellBasedTrajectory，主要是添加idx信息
+	//对每条轨迹分配cellBasedTrajectory后两个信息的内存：起始位置和采样点数目
+	for (int i = 1; i <= this->trajNum; i++) {
+		this->cellBasedTrajectory[i].startIdx = (int*)malloc(sizeof(int)*this->cellBasedTrajectory[i].length);
+		this->cellBasedTrajectory[i].numOfPointInCell = (short*)malloc(sizeof(short)*this->cellBasedTrajectory[i].length);
+		int* tempCntForTraj = (int*)malloc(sizeof(int)*this->cellnum);
+		memset(tempCntForTraj, 0, sizeof(int)*this->cellnum);
+		for (int cellidx = 0; cellidx <= this->cellBasedTrajectory[i].length - 1; cellidx++) {
+			int nowCellID = this->cellBasedTrajectory[i].cellNo[cellidx];
+			int j,cnt;
+			for (j = 0, cnt = 0; cnt <= tempCntForTraj[nowCellID]; j++) {
+				if (this->cellPtr[nowCellID].subTraTable[j].traID == i) {
+					cnt++;
+				}
 			}
+			j--;
+			//choose j; //选择第j项subTra，但是这里面还是没有起始点的信息，考虑回来把point的信息加进subtraTable。。。反正最后要把subTraTable给free掉
+			this->cellBasedTrajectory[i].startIdx[cellidx] = this->cellPtr[nowCellID].subTraTable[j].idxInAllPointsArray;
+			this->cellBasedTrajectory[i].numOfPointInCell[cellidx] = this->cellPtr[nowCellID].subTraTable[j].numOfPoint;
+			tempCntForTraj[nowCellID]++;
 		}
-		cellPtr[i].pointRangeEnd = pointCount - 1;
-		if (cellPtr[i].pointRangeEnd - cellPtr[i].pointRangeStart + 1 != cellPtr[i].totalPointNum)
-			cerr << "Grid.cpp: something wrong in total point statistic" << endl;
+		free(tempCntForTraj);
 	}
+	
+
+	////Delta Encoding的cell连续存储
+	//this->allPointsDeltaEncoding = (DPoint*)malloc(sizeof(DPoint)*(this->totalPointNum));
+	//pointCount = 0;
+	//for (int i = 0; i <= cellnum - 1; i++) {
+	//	cellPtr[i].pointRangeStart = pointCount;
+	//	for (int j = 0; j <= cellPtr[i].subTraNum - 1; j++) {
+	//		for (int k = cellPtr[i].subTraTable[j].startpID; k <= cellPtr[i].subTraTable[j].endpID; k++) {
+	//			allPointsDeltaEncoding[pointCount].tID = cellPtr[i].subTraTable[j].traID;
+	//			allPointsDeltaEncoding[pointCount].x = short(int((tradb[allPointsDeltaEncoding[pointCount].tID].points[k].lon)*1000000)-cellPtr[i].anchorPointX);
+	//			allPointsDeltaEncoding[pointCount].y = short(int((tradb[allPointsDeltaEncoding[pointCount].tID].points[k].lat)*1000000)-cellPtr[i].anchorPointY);
+	//			pointCount++;
+	//		}
+	//	}
+	//	cellPtr[i].pointRangeEnd = pointCount - 1;
+	//	if (cellPtr[i].pointRangeEnd - cellPtr[i].pointRangeStart + 1 != cellPtr[i].totalPointNum)
+	//		cerr << "Grid.cpp: something wrong in total point statistic" << endl;
+	//}
 
 	//把生成好的allpoints放到GPU内
 	//putCellDataSetIntoGPU(this->allPoints, this->allPointsPtrGPU, this->totalPointNum);
@@ -417,8 +453,9 @@ int Grid::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * R
 	//	}
 	//}
 		//查询结束，善后，清空stateTable，清空gpu等
-		this->stateTableRange = stateTableAllocate;
-		return 0;
+	this->stateTableRange = stateTableAllocate;
+
+	return 0;
 }
 
 int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID)
@@ -466,6 +503,134 @@ int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<Quad
 
 int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * EDRdistance)
 {
+	priority_queue<FDwithID, vector<FDwithID>, cmp> *queryQueue = new priority_queue<FDwithID, vector<FDwithID>, cmp>[queryTrajNum];
+	map<int, int> *freqVectors = new map<int, int>[queryTrajNum];
+	//为查询构造freqVector
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
+		for (int pID = 0; pID <= qTra[qID].length - 1; pID++) {
+			int cellid = WhichCellPointIn(SamplePoint(qTra[qID].points[pID].lon, qTra[qID].points[pID].lat, 1, 1));
+			map<int, int>::iterator iter = freqVectors[qID].find(cellid);
+			if (iter == freqVectors[qID].end()) {
+				freqVectors[qID].insert(pair<int, int>(cellid, 1));
+			}
+			else {
+				freqVectors[qID][cellid] = freqVectors[qID][cellid] + 1;
+			}
+		}
+	}
+	//为剪枝计算Frequency Distance
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
+		this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
+	}
+	//准备好之后，开始做查询
+	const int k = 20;
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
+		int worstNow = 9999999;
+		while (worstNow > queryQueue[qID].top().FD) {
+			int candidateTrajID[k];
+			//提取topk
+			for (int i = 0; i <= k - 1; i++) {
+				candidateTrajID[i] = queryQueue[qID].top().traID;
+				queryQueue[qID].pop();
+			}
+			//EDR calculate
+			for (int i = 0; i <= k - 1; i++) {
+				//第一步：从AllPoints里提取出来轨迹
+				SPoint *queryTra = (SPoint*)malloc(sizeof(SPoint)*this->cellBasedTrajectory[candidateTrajID[i]].trajLength);
+				for (int subID = 0; subID <= this->cellBasedTrajectory[candidateTrajID[i]].length - 1; subID++) {
+					int idxInAllPoints = this->cellBasedTrajectory[candidateTrajID[i]].startIdx[subID];
+					memcpy(queryTra, &this->allPoints[idxInAllPoints], this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
+					queryTra += this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID];
+				}
+
+				//第二步：计算EDR
+
+
+				//更新worstNow
+			}
+
+		}
+
+	}
+
+	return 0;
+}
+
+int Grid::SimilarityExecuter(SPoint * queryTra, SPoint ** candidateTra, int queryLength, int * candidateLength, int candSize, int *resultArray)
+{
+	for (int i = 0; i <= candSize - 1; i++) {
+		//每个DP问题
+		SPoint *CPUqueryTra = queryTra, *CPUCandTra = candidateTra[i];
+		int CPUqueryLength = queryLength, CPUCandLength = candidateLength[i];
+		int longest = 0;
+
+		const SPoint *tra1, *tra2;
+		int len1, len2;
+		if (CPUCandLength >= CPUqueryLength) {
+			tra1 = CPUqueryTra;
+			tra2 = CPUCandTra;
+			len1 = CPUqueryLength;
+			len2 = CPUCandLength;
+		}
+		else
+		{
+			tra1 = CPUCandTra;
+			tra2 = CPUqueryTra;
+			len1 = CPUCandLength;
+			len2 = CPUqueryLength;
+		}
+
+		if (CPUqueryLength >= longest) {
+			longest = CPUqueryLength;
+		}
+		else
+		{
+			longest = CPUCandLength;
+		}
+
+
+		int **stateTable = (int**)malloc(sizeof(int*)*(len1 + 1));
+		for (int j = 0; j <= len1; j++) {
+			stateTable[j] = (int*)malloc(sizeof(int)*(len2 + 1));
+		}
+		stateTable[0][0] = 0;
+		for (int row = 1; row <= len1; row++) {
+			stateTable[row][0] = row;
+		}
+		for (int col = 1; col <= len2; col++) {
+			stateTable[0][col] = col;
+		}
+
+		for (int row = 1; row <= len1; row++) {
+			for (int col = 1; col <= len2; col++) {
+				SPoint p1 = tra1[row - 1];
+				SPoint p2 = tra2[col - 1]; //这样做内存是聚集访问的吗？
+				bool subcost;
+				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+					subcost = 0;
+				}
+				else
+					subcost = 1;
+				int myState = 0;
+				int state_ismatch = stateTable[row - 1][col - 1] + subcost;
+				int state_up = stateTable[row - 1][col] + 1;
+				int state_left = stateTable[row][col - 1] + 1;
+				if (state_ismatch < state_up)
+					myState = state_ismatch;
+				else if (state_left < state_up)
+					myState = state_left;
+				else
+					myState = state_ismatch;
+
+				stateTable[row][col] = myState;
+				//	if (row == len1&&col == len2)
+				//cout << myState << endl;
+			}
+		}
+
+		resultArray[i] = stateTable[len1][len2];
+		//cout << resultCPU[i] << endl;
+	}
 	return 0;
 }
 

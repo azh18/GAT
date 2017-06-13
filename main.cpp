@@ -25,7 +25,6 @@ void *baseAddrGPU = NULL;
 
 int main()
 {
-	
 	int WriteTrajectoryToFile(string outFileName, int numTra);
 	cout << "Hello world!" << endl;
 	cout << sizeof(Cell) << endl;
@@ -36,11 +35,13 @@ int main()
 	//lat2 = +35.15221;
 	//lon2 = +113.10222;
 	//cout << calculateDistance(lat1, lon1, lat2, lon2) << endl;
-	PreProcess pp("SH_1.txt", "dataout.txt");
+	tradb = new Trajectory[MAX_TRAJ_SIZE];
+	PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.003);
 	g->addDatasetToGrid(tradb, pp.maxTid);
+	//delete[] tradb;
 	int count = 0;
 	for (int i = 0; i <= g->cellnum - 1; i++) {
 		if (g->cellPtr[i].subTraNum == 0)

@@ -14,6 +14,7 @@ class Trajectory
         virtual ~Trajectory();
         int tid;
         SamplePoint points[MAXLENGTH]; //下标从0开始
+		//SPoint points[MAXLENGTH];
         int length = 0;
         std::string vid;
         int errCounter = 0;

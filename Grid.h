@@ -11,6 +11,7 @@
 #include<vector>
 #include "cudaKernel.h"
 #include <map>
+#include"FVTable.h"
 
 using namespace std;
 extern Trajectory* tradb;
@@ -52,6 +53,7 @@ public:
 	int findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID);
 	//SimilarityQuery
 	int SimilarityQueryBatch(Trajectory *qTra, int queryTrajNum, int *EDRdistance);
+	int SimilarityExecuter(SPoint* queryTra, SPoint** candidateTra, int queryLength, int* candidateLength, int candSize, int *resultArray);
 
 
 
@@ -75,6 +77,8 @@ public:
 	map<int, void*> nodeAddrTable;
 	int stateTableLength;
 	int nodeAddrTableLength;
+	FVTable freqVectors;
+	
 	
 
 

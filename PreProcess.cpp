@@ -59,7 +59,7 @@ PreProcess::PreProcess(string fileName,string outFileName)
     string linestr;
 	//MyTimer timer;
 	//tradb = (Trajectory*)malloc(sizeof(Trajectory) * 100000);
-	tradb = new Trajectory[MAX_TRAJ_SIZE];
+	
     while(getline(bufferstream,linestr))
     {
         string s = linestr;

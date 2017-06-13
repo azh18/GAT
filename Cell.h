@@ -14,6 +14,7 @@ typedef struct subTra {
 	short startpID;
 	short endpID;
 	short numOfPoint;//每个子轨迹点的个数
+	int idxInAllPointsArray;
 	subTra* next;
 }subTra;
 

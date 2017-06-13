@@ -44,7 +44,10 @@ typedef struct DPoint {
 
 typedef struct cellBasedTraj {
 	int *cellNo = NULL;
+	int *startIdx = NULL; //相应轨迹在cell中的开始的轨迹在AllPoints中的idx
+	short *numOfPointInCell = NULL;//在每个cell中对应该轨迹点的个数
 	short length;
+	int trajLength;
 }cellBasedTraj;
 
 typedef struct RangeQueryStateTable {
