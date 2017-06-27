@@ -503,10 +503,12 @@ int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, vector<Quad
 
 int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * topKSimilarityTraj, int kValue)
 {
+	MyTimer timer;
 	//思路：分别处理每一条查询轨迹，用不同stream并行
 	priority_queue<FDwithID, vector<FDwithID>, cmp> *queryQueue = new priority_queue<FDwithID, vector<FDwithID>, cmp>[queryTrajNum];
 	map<int, int> *freqVectors = new map<int, int>[queryTrajNum];
 	//为查询构造freqVector
+	timer.start();
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
 		for (int pID = 0; pID <= qTra[qID].length - 1; pID++) {
 			int cellid = WhichCellPointIn(SamplePoint(qTra[qID].points[pID].lon, qTra[qID].points[pID].lat, 1, 1));
@@ -519,11 +521,15 @@ int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * topKSi
 			}
 		}
 	}
+	timer.stop();
+	cout << "Part1 time:" << timer.elapse() << endl;
+	timer.start();
 	//为剪枝计算Frequency Distance
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
 		this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
 	}
-
+	timer.stop();
+	cout << "Part2 time:" << timer.elapse() << endl;
 	//用一个优先队列存储当前最优结果，大顶堆，保证随时可以pop出差的结果
 	priority_queue<FDwithID, vector<FDwithID>, cmpBig> *EDRCalculated = new priority_queue<FDwithID, vector<FDwithID>, cmpBig>[queryTrajNum];
 	int *numElemInCalculatedQueue = new int[queryTrajNum]; //保存当前优先队列结果，保证优先队列大小不大于kValue
@@ -531,7 +537,7 @@ int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * topKSi
 		numElemInCalculatedQueue[i] = 0;
 
 	//准备好之后，开始做查询
-	const int k = 20;
+	const int k = 50;
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
 		SPoint *queryTra = (SPoint*)malloc(sizeof(SPoint)*qTra[qID].length);
 		for (int i = 0; i <= qTra[qID].length - 1; i++) {
@@ -539,6 +545,7 @@ int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * topKSi
 			queryTra[i].y = qTra[qID].points[i].lat;
 		}
 		int worstNow = 9999999;
+		timer.start();
 		//printf("qID:%d", qID);
 		while (worstNow > queryQueue[qID].top().FD) {
 			int candidateTrajID[k];
@@ -578,7 +585,7 @@ int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * topKSi
 					fd.traID = candidateTrajID[i];
 					fd.FD = resultReturned[i];
 					EDRCalculated[qID].push(fd);
-					numElemInCalculatedQueue[i]++;
+					numElemInCalculatedQueue[qID]++;
 				}
 				else {
 					//看一下是否比PQ里更好，如果是弹出一个差的，换进去一个好的；否则不动优先队列也不更新worstNow。
@@ -593,7 +600,7 @@ int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * topKSi
 				}
 			}
 			worstNow = EDRCalculated[qID].top().FD;
-			printf("%d,worstNow:%d\t", qID,worstNow);
+			//printf("%d,worstNow:%d\t", qID,worstNow);
 			//该轮结束，释放内存
 			for (int i = 0; i <= k - 1; i++)
 				free(candidateTra[i]);
@@ -601,6 +608,10 @@ int Grid::SimilarityQueryBatch(Trajectory * qTra, int queryTrajNum, int * topKSi
 			free(candidateTra);
 
 		}
+		timer.stop();
+		cout << "Query Trajectory Length:" << qTra[qID].length << endl;
+		cout << "Part3 time:" << timer.elapse() << endl;
+
 		free(queryTra);
 		for (int i = 0; i <= kValue - 1; i++) {
 			topKSimilarityTraj[qID*kValue + i] = EDRCalculated[qID].top().traID;
