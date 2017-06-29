@@ -54,7 +54,7 @@ public:
 	//SimilarityQuery
 	int SimilarityQueryBatch(Trajectory *qTra, int queryTrajNum, int *EDRdistance, int kValue);
 	int SimilarityExecuter(SPoint* queryTra, SPoint** candidateTra, int queryLength, int* candidateLength, int candSize, int *resultArray);
-
+	int SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * topKSimilarityTraj, int kValue);
 
 
 	//Grid索引包含的坐标范围
