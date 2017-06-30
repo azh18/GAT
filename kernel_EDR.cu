@@ -210,6 +210,195 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra,int candid
 	if (threadID == 0)
 		result[blockID] = myState;
 }
+
+/*
+SPoint版本
+同时处理若干个query的EDR，这里以一个EDR计算为单位，每个block计算一个EDR，thread负责一条斜线上state的并行计算。
+case1：轨迹长度可长于512，利用循环处理多余512的。
+并行计算n个DP
+需要提前给定前两次dp的结果，保存在共享内存里
+queryTaskNum:总共有几个EDR计算任务
+queryTaskInfo[]：每个task对应的qID、candidateID信息，用struct存储
+queryTra[],candidateTra[]:轨迹数据，candidateTra保证其内部轨迹不重复
+queryTraOffset[],candidateTraOffset[]:每条轨迹的offset，candidateTra保证其内部轨迹不重复
+queryLength[],candidateLength[]:每条轨迹的长度（其实offset相减就是长度），其idx和上面的对应
+即：candidateLength[id]是第id个candidate Traj的长度
+stateTableGPU[][]:对每个candidate的state表
+result[]:对于每个candidate的EDR结果
+优化方向：
+1、轨迹存在share memory里面
+2、直接传递轨迹，不使用指针
+*/
+
+__global__ void EDRDistance_Batch(int queryTaskNum, SPoint *queryTra, SPoint *candidateTra, int* queryTraOffset, int* candidateTraOffset, int* queryLength, int *candidateLength, int** stateTableGPU, int *result) {
+	int blockID = blockIdx.x;
+	int threadID = threadIdx.x;
+	if (blockID >= queryTaskNum) return;
+	int thisQueryLength = queryLength[]
+	if ((threadID >= candidateLength[blockID]) && (threadID >= queryLength)) return;
+	const int lenT = candidateLength[blockID];
+	//int iterNum = queryLength;
+	//if (lenT > queryLength)
+	//	iterNum = lenT;
+	const int iterNum = queryLength + lenT - 1;
+	__shared__ int state[2][MAXTHREAD]; //用于存储前两次的结果
+	state[0][0] = 0;
+	state[1][0] = 1;
+	state[1][1] = 1;
+	//对两个轨迹排序，保证第一个比第二个短
+	//首先把轨迹存在共享内存里
+	__shared__ SPoint queryTraS[MAXTHREAD];
+	__shared__ SPoint traData[MAXTHREAD];
+	if (threadID < lenT) {
+		traData[threadID] = candidateTra[blockID][threadID];
+	}
+	if (threadID < queryLength) {
+		queryTraS[threadID] = queryTra[threadID];
+	}
+	const SPoint *tra1, *tra2; //保证tra1比tra2短
+	int len1, len2;
+	if (lenT >= queryLength) {
+		tra1 = queryTraS;
+		tra2 = traData;
+		len1 = queryLength;
+		len2 = lenT;
+	}
+	else
+	{
+		tra1 = traData;
+		tra2 = queryTraS;
+		len1 = lenT;
+		len2 = queryLength;
+	}
+
+	int myState;
+	for (int i = 0; i <= iterNum - 1; i++) {//第i轮dp
+		if (i < len1 - 1) {
+			if (threadID <= i) {
+				SPoint p1 = tra1[threadID];
+				SPoint p2 = tra2[i - threadID]; //这样做内存是聚集访问的吗？
+				bool subcost;
+				//if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+				//	subcost = 0;
+				//}
+				//else
+				//	subcost = 1;
+				subcost = !(((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON);
+				int state_ismatch = state[0][threadID] + subcost;
+				int state_up = state[1][threadID] + 1;
+				int state_left = state[1][threadID + 1] + 1;
+				//if (state_ismatch < state_up)
+				//	myState = state_ismatch;
+				//else if (state_left < state_up)
+				//	myState = state_left;
+				//else
+				//	myState = state_ismatch;
+				//去除if的表达方式，是否可以提升性能？
+				myState = (state_ismatch < state_up) * state_ismatch + (state_left < state_up) * state_up + (state_left >= state_up) * state_left;
+
+			}
+		}
+		else if (i > iterNum - len1) {
+			if (threadID <= iterNum - i - 1) {
+				SPoint p1 = tra1[threadID + len1 - (iterNum - i)];
+				SPoint p2 = tra2[len2 - 1 - threadID]; //这样做内存是聚集访问的吗？
+				bool subcost;
+				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+					subcost = 0;
+				}
+				else
+					subcost = 1;
+				int state_ismatch = state[0][threadID + 1] + subcost;
+				int state_up = state[1][threadID] + 1;
+				int state_left = state[1][threadID + 1] + 1;
+				if (state_ismatch < state_up)
+					myState = state_ismatch;
+				else if (state_left < state_up)
+					myState = state_left;
+				else
+					myState = state_ismatch;
+			}
+		}
+		else
+		{
+			if (threadID < len1) {
+				SPoint p1 = tra1[threadID];
+				SPoint p2 = tra2[i - threadID]; //这样做内存是聚集访问的吗？
+				bool subcost;
+				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+					subcost = 0;
+				}
+				else
+					subcost = 1;
+				int state_ismatch = state[0][threadID] + subcost;
+				int state_up = state[1][threadID] + 1;
+				int state_left = state[1][threadID + 1] + 1;
+				if (state_ismatch < state_up)
+					myState = state_ismatch;
+				else if (state_left < state_up)
+					myState = state_left;
+				else
+					myState = state_ismatch;
+			}
+		}
+		//写myState到share内存,ckecked
+		int startidx;
+		//首先将老数据写到全局内存，全写
+		//startidx是旧的数据应该在全局内存中地址，以i-2计算
+		//计算应写入全局内存的起始位置
+
+		if (i - 2 < len1 - 2) {
+			startidx = (i - 2 + 2)*(i - 2 + 3) / 2;
+			if (threadID <= i) {
+				stateTableGPU[blockID][threadID + startidx] = state[0][threadID];
+			}
+		}
+		else if (i - 2 >= iterNum - len1) {
+			startidx = (len1 + 1)*(len2 + 1) - (iterNum - (i - 2))*(iterNum - (i - 2) + 1) / 2;
+			if (threadID <= iterNum - i + 1) {
+				stateTableGPU[blockID][threadID + startidx] = state[0][threadID];
+			}
+		}
+		else
+		{
+			startidx = (len1 + 1)*((i - 2) - (len1 - 2)) + len1*(len1 + 1) / 2;
+			if (threadID <= len1) {
+				stateTableGPU[blockID][threadID + startidx] = state[0][threadID];
+			}
+		}
+
+		//移动新数据到旧数据
+		state[0][threadID] = state[1][threadID];
+		//写入新数据
+		if (i < len1 - 1) {
+			if (threadID <= i)
+				state[1][threadID + 1] = myState;
+			if (threadID == 0) {
+				state[1][0] = i + 2;
+				state[1][i + 2] = i + 2;
+			}
+		}
+		else if (i >= iterNum - len1) {
+			if (threadID <= iterNum - i - 1)
+				state[1][threadID] = myState;
+		}
+		else
+		{
+			if (threadID < len1)
+				state[1][threadID + 1] = myState;
+			if (threadID == 0) {
+				state[1][0] = i + 2;
+			}
+		}
+		__syncthreads();
+	}
+	//输出结果，最后一次计算一定是由进程0完成的
+	if (threadID == 0)
+		result[blockID] = myState;
+}
+
+
+
 /*
 //先按照能否用一个SM执行一个DP来划分任务，再分别调用两种kernel
 //constructing...

@@ -61,5 +61,15 @@ typedef struct RangeQueryStateTable {
 	int startIdxInAllPoints;
 }RangeQueryStateTable;
 
+typedef struct OffsetTable {
+	int objectId;
+	SPoint *addr;
+}OffsetTable;
+
+typedef struct offsetTableForSimilarity {
+	int qID;
+	int kth;
+}offsetTableForSimilarity;
+
 int getIdxFromXY(int x, int y);
 

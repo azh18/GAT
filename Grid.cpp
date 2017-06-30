@@ -711,17 +711,17 @@ int Grid::SimilarityExecuter(SPoint * queryTra, SPoint ** candidateTra, int quer
 	return 0;
 }
 
-typedef struct offsetTableForSimilarity {
-	short qID;
-	short kth;
-	int offset;
-}offsetTableForSimilarity;
-
 
 int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * topKSimilarityTraj, int kValue)
 //所有（批量）query级别上的GPU并行
 //备用思路：分别处理每一条查询轨迹，用不同stream并行
 {
+	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
+	//当前分配到的地址
+	void* nowAddrGPU = NULL;
+	cudaStream_t defaultStream;
+	cudaStreamCreate(&defaultStream);
+
 	MyTimer timer;
 
 	priority_queue<FDwithID, vector<FDwithID>, cmp> *queryQueue = new priority_queue<FDwithID, vector<FDwithID>, cmp>[queryTrajNum];
@@ -761,21 +761,31 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
 		totalQueryTrajLength += qTra[qID].length;
 	}
+	//查询轨迹信息的准备：
 	//保存查询的轨迹
 	SPoint *allQueryTra = (SPoint*)malloc(sizeof(SPoint)*totalQueryTrajLength);
 	//保存在allQueryTra中各个轨迹的offset（起始地址）
 	int *allQueryTraOffset = new int[queryTrajNum]; 
 	SPoint *queryTra = allQueryTra;
+	void *queryTraGPU = baseAddrGPU;
 	allQueryTraOffset[0] = 0;
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
 		for (int i = 0; i <= qTra[qID].length - 1; i++) {
 			queryTra[i].x = qTra[qID].points[i].lon;
 			queryTra[i].y = qTra[qID].points[i].lat;
 		}
+		CUDA_CALL(cudaMemcpyAsync(queryTraGPU, queryTra, sizeof(SPoint)*qTra[qID].length, cudaMemcpyHostToDevice, defaultStream));
+		queryTraGPU = (void*)((SPoint*)queryTraGPU + qTra[qID].length);
 		queryTra += qTra[qID].length;
 		if (qID != queryTrajNum - 1)
 			allQueryTraOffset[qID + 1] = allQueryTraOffset[qID] + qTra[qID].length;
 	}
+	nowAddrGPU = queryTraGPU;
+	void *queryTraOffsetGPU = nowAddrGPU;
+	CUDA_CALL(cudaMemcpyAsync(queryTraOffsetGPU, allQueryTraOffset, sizeof(int)*queryTrajNum, cudaMemcpyHostToDevice, defaultStream));
+	nowAddrGPU = (void*)((int*)nowAddrGPU + queryTrajNum);
+
+
 
 	//第一步：循环，剪枝
 	int *worstNow = new int[queryTrajNum];
@@ -794,6 +804,13 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 		candidateTrajID[i] = new int[k];
 	//保存qid、candID和在candidateTran中的offset的对应关系
 	offsetTableForSimilarity *offsetTableCandidateTra = (offsetTableForSimilarity *)malloc(sizeof(offsetTableForSimilarity)*k*queryTrajNum);
+	//轨迹唯一，保存某轨迹的id和baseAddr
+	OffsetTable *candidateTrajOffsetTable = (OffsetTable*)malloc(sizeof(OffsetTable)*k*queryTrajNum);
+	int candidateTrajNum = 0;
+	// traID和在candidateTrajOffsetTable中的idx的对应关系map
+	map<int, int> traID_candidateTraID;
+	void *candidateTraGPU = nowAddrGPU;
+
 	while (!isAllFinished) {
 		int validCandTrajNum = 0;
 		int validQueryTraNum = queryTrajNum;
@@ -820,6 +837,22 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 						validCandTrajNum++;
 					}
 					for (int i = 0; i <= k - 1; i++) {
+						int CandTrajID = candidateTrajID[qID][i];
+						map<int, int>::iterator traID_candidateTraID_ITER = traID_candidateTraID.find(CandTrajID);
+						if (traID_candidateTraID_ITER == traID_candidateTraID.end()) {
+							int pointsNumInThisCand = 0;
+							SPoint* thisTrajAddr = tempPtr;
+							for (int subID = 0; subID <= this->cellBasedTrajectory[candidateTrajID[qID][i]].length - 1; subID++) {
+								int idxInAllPoints = this->cellBasedTrajectory[candidateTrajID[qID][i]].startIdx[subID];
+								memcpy(tempPtr, &this->allPoints[idxInAllPoints], sizeof(SPoint)*this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID]);
+								tempPtr += this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID];
+								pointsNumInThisCand += this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID];
+							}
+							CUDA_CALL(cudaMemcpyAsync(candidateTraGPU, thisTrajAddr, pointsNumInThisCand*sizeof(SPoint), cudaMemcpyHostToDevice, defaultStream));
+							candidateTraGPU = (void*)((SPoint*)candidateTraGPU + pointsNumInThisCand);
+							thisTrajAddr += pointsNumInThisCand;
+
+						}
 						int pointsNumInThisCand = 0;
 						for (int subID = 0; subID <= this->cellBasedTrajectory[candidateTrajID[qID][i]].length - 1; subID++) {
 							int idxInAllPoints = this->cellBasedTrajectory[candidateTrajID[qID][i]].startIdx[subID];
