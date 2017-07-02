@@ -63,13 +63,13 @@ typedef struct RangeQueryStateTable {
 
 typedef struct OffsetTable {
 	int objectId;
-	SPoint *addr;
+	void *addr;
 }OffsetTable;
 
-typedef struct offsetTableForSimilarity {
+typedef struct TaskInfoTableForSimilarity {
 	int qID;
-	int kth;
-}offsetTableForSimilarity;
+	int candTrajID;
+}TaskInfoTableForSimilarity;
 
 int getIdxFromXY(int x, int y);
 

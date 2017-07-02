@@ -767,7 +767,10 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 	//保存在allQueryTra中各个轨迹的offset（起始地址）
 	int *allQueryTraOffset = new int[queryTrajNum]; 
 	SPoint *queryTra = allQueryTra;
-	void *queryTraGPU = baseAddrGPU;
+	SPoint *queryTraGPU = (SPoint*)baseAddrGPU;
+	//这个才是保存所有queryTra的基址
+	SPoint *queryTraGPUBase = queryTraGPU;
+
 	allQueryTraOffset[0] = 0;
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
 		for (int i = 0; i <= qTra[qID].length - 1; i++) {
@@ -775,13 +778,14 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 			queryTra[i].y = qTra[qID].points[i].lat;
 		}
 		CUDA_CALL(cudaMemcpyAsync(queryTraGPU, queryTra, sizeof(SPoint)*qTra[qID].length, cudaMemcpyHostToDevice, defaultStream));
-		queryTraGPU = (void*)((SPoint*)queryTraGPU + qTra[qID].length);
+		queryTraGPU = queryTraGPU + qTra[qID].length;
 		queryTra += qTra[qID].length;
 		if (qID != queryTrajNum - 1)
 			allQueryTraOffset[qID + 1] = allQueryTraOffset[qID] + qTra[qID].length;
 	}
 	nowAddrGPU = queryTraGPU;
-	void *queryTraOffsetGPU = nowAddrGPU;
+	// queryTraOffsetGPU是保存queryTra中offset的基地址
+	int *queryTraOffsetGPU = (int*)nowAddrGPU;
 	CUDA_CALL(cudaMemcpyAsync(queryTraOffsetGPU, allQueryTraOffset, sizeof(int)*queryTrajNum, cudaMemcpyHostToDevice, defaultStream));
 	nowAddrGPU = (void*)((int*)nowAddrGPU + queryTrajNum);
 
@@ -803,13 +807,15 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 	for (int i = 0; i <= queryTrajNum - 1; i++)
 		candidateTrajID[i] = new int[k];
 	//保存qid、candID和在candidateTran中的offset的对应关系
-	offsetTableForSimilarity *offsetTableCandidateTra = (offsetTableForSimilarity *)malloc(sizeof(offsetTableForSimilarity)*k*queryTrajNum);
-	//轨迹唯一，保存某轨迹的id和baseAddr
+	TaskInfoTableForSimilarity *taskInfoTable = (TaskInfoTableForSimilarity *)malloc(sizeof(TaskInfoTableForSimilarity)*k*queryTrajNum);
+	//轨迹唯一，保存在id下轨迹的id和baseAddr （有必要保存轨迹的id吗？）
 	OffsetTable *candidateTrajOffsetTable = (OffsetTable*)malloc(sizeof(OffsetTable)*k*queryTrajNum);
+	//保存candidateOffset的基地址们
+	SPoint** candidateOffsets = (SPoint**)malloc(sizeof(SPoint*)*k*queryTrajNum);
 	int candidateTrajNum = 0;
-	// traID和在candidateTrajOffsetTable中的idx的对应关系map
-	map<int, int> traID_candidateTraID;
-	void *candidateTraGPU = nowAddrGPU;
+	// traID和在candidateTrajOffsetTable中的idx的对应关系map，主要用于判断轨迹是否已经复制到gpu
+	map<int, void*> traID_baseAddr;
+	SPoint *candidateTraGPU = (SPoint*)nowAddrGPU;
 
 	while (!isAllFinished) {
 		int validCandTrajNum = 0;
@@ -821,7 +827,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 			if (isFinished[qID])
 				validQueryTraNum--;
 			if (!isFinished[qID]) {
-				if (worstNow[qID] > queryQueue[qID].top().FD)
+				if (worstNow[qID] < queryQueue[qID].top().FD)
 				{
 					validQueryTraNum--;
 					isFinished[qID] = TRUE;
@@ -838,8 +844,9 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 					}
 					for (int i = 0; i <= k - 1; i++) {
 						int CandTrajID = candidateTrajID[qID][i];
-						map<int, int>::iterator traID_candidateTraID_ITER = traID_candidateTraID.find(CandTrajID);
-						if (traID_candidateTraID_ITER == traID_candidateTraID.end()) {
+						map<int, void*>::iterator traID_baseAddr_ITER = traID_baseAddr.find(CandTrajID);
+						// 如果轨迹还没有保存在GPU中
+						if (traID_baseAddr_ITER == traID_baseAddr.end()) {
 							int pointsNumInThisCand = 0;
 							SPoint* thisTrajAddr = tempPtr;
 							for (int subID = 0; subID <= this->cellBasedTrajectory[candidateTrajID[qID][i]].length - 1; subID++) {
@@ -848,43 +855,58 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 								tempPtr += this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID];
 								pointsNumInThisCand += this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID];
 							}
+							// 把这条轨迹提取到candidateTraGPU中
 							CUDA_CALL(cudaMemcpyAsync(candidateTraGPU, thisTrajAddr, pointsNumInThisCand*sizeof(SPoint), cudaMemcpyHostToDevice, defaultStream));
-							candidateTraGPU = (void*)((SPoint*)candidateTraGPU + pointsNumInThisCand);
-							thisTrajAddr += pointsNumInThisCand;
-
+							traID_baseAddr[candidateTrajID[qID][i]] = candidateTraGPU;
+							//仅保存要计算的query的candidateTraLength
+							candidateTraLength[k*validQueryIdx + i] = this->cellBasedTrajectory[candidateTrajID[qID][i]].trajLength;
+							//仅保存要计算的query的offset
+							taskInfoTable[k*validQueryIdx + i].qID = qID;
+							taskInfoTable[k*validQueryIdx + i].candTrajID = CandTrajID;
+							// 保存轨迹对应的addr
+							candidateTrajOffsetTable[k*validQueryIdx + i].objectId = candidateTrajID[qID][i];
+							candidateTrajOffsetTable[k*validQueryIdx + i].addr = candidateTraGPU;
+							candidateOffsets[k*validQueryIdx + i] = candidateTraGPU;
+							//地址往前移动，便于下一次复制
+							candidateTraGPU = (candidateTraGPU + pointsNumInThisCand);
+							nowAddrGPU = (void*)candidateTraGPU;
 						}
-						int pointsNumInThisCand = 0;
-						for (int subID = 0; subID <= this->cellBasedTrajectory[candidateTrajID[qID][i]].length - 1; subID++) {
-							int idxInAllPoints = this->cellBasedTrajectory[candidateTrajID[qID][i]].startIdx[subID];
-							memcpy(tempPtr, &this->allPoints[idxInAllPoints], sizeof(SPoint)*this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID]);
-							tempPtr += this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID];
-							pointsNumInThisCand += this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID];
-						}
-						//仅保存要计算的query的offset
-						offsetTableCandidateTra[k*validQueryIdx + i].qID = qID;
-						offsetTableCandidateTra[k*validQueryIdx + i].kth = i;
-						if (k*validQueryIdx + i == 0) {
-							offsetTableCandidateTra[k*validQueryIdx + i].offset = 0;
-							offsetTableCandidateTra[k*validQueryIdx + i + 1].offset = pointsNumInThisCand;
-						}
+						// 如果该轨迹已经复制进了gpu里面，那么只需要按照该轨迹id更新表就行了
 						else
-							offsetTableCandidateTra[k*validQueryIdx + i + 1].offset = offsetTableCandidateTra[k*validQueryIdx + i].offset + pointsNumInThisCand;
-						//仅保存要计算的query的candidateTraLength
-						candidateTraLength[k*validQueryIdx + i] = this->cellBasedTrajectory[candidateTrajID[qID][i]].trajLength;
+						{
+							void* baseAddrGPU = traID_baseAddr_ITER->second;
+							//仅保存要计算的query的candidateTraLength
+							candidateTraLength[k*validQueryIdx + i] = this->cellBasedTrajectory[CandTrajID].trajLength;
+							//仅保存要计算的query的offset
+							taskInfoTable[k*validQueryIdx + i].qID = qID;
+							taskInfoTable[k*validQueryIdx + i].candTrajID = CandTrajID;
+							// 保存轨迹对应的addr
+							candidateTrajOffsetTable[k*validQueryIdx + i].objectId = CandTrajID;
+							candidateTrajOffsetTable[k*validQueryIdx + i].addr = baseAddrGPU;
+							candidateOffsets[k*validQueryIdx + i] = candidateTraGPU;
+						}
 					}
 					validQueryIdx++;
+					//最终，需要被计算的EDR有validQueryIdx * k 个
+					// 如果正确，validQueryIdx * k 应当等于validCandTrajNum
+					//如果正确，validQueryIdx应当等于validQueryNum
 				}
 			}
 		}
 		//构建candidateTraj和candidateLength完成，准备并行Similarity search
 		//只需要查询isFinished为false的queryTra，至于是哪些可以直接看offsetTableCandidateTra
 		int *resultReturned = new int[queryTrajNum*k];
+		//如果上面的分配没有错，开始计算EDR
+		if(validQueryTraNum*k == validCandTrajNum)
+		{
+			
+		}
 
 
 		//并行计算结束后，更新worstNow以及写入结果
 		for (int idx = 0; idx <= k*validQueryTraNum - 1; idx++) {
-			int qID = offsetTableCandidateTra[idx].qID;
-			int i = offsetTableCandidateTra[idx].kth;
+			int qID = taskInfoTable[idx].qID;
+			int i = idx % k;
 			if (numElemInCalculatedQueue[qID] < kValue) {
 				//直接往PQ里加
 				FDwithID fd;
@@ -1013,136 +1035,136 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * t
 	delete[] queryQueue;
 	return 0;
 }
-
-int Grid::SimilarityQuery(Trajectory & qTra, Trajectory **candTra, const int candSize, float * EDRdistance)
-{
-	cout << candSize << endl;
-	SPoint *queryTra = (SPoint*)malloc(sizeof(SPoint)*(qTra.length));
-	for (int i = 0; i <= qTra.length - 1; i++) {
-		queryTra[i].x = qTra.points[i].lon;
-		queryTra[i].y = qTra.points[i].lat;
-		queryTra[i].tID = qTra.points[i].tid;
-	}
-
-	SPoint **candidateTra = (SPoint**)malloc(sizeof(SPoint*)*candSize);
-
-	for (int i = 0; i <= candSize - 1; i++) {
-		candidateTra[i] = (SPoint*)malloc(sizeof(SPoint)*(candTra[i]->length)); //调试的时候这一部分总报内存错误，FFFFF
-		for (int j = 0; j <= candTra[i]->length - 1; j++) {
-			candidateTra[i][j].x = candTra[i]->points[j].lon;
-			candidateTra[i][j].y = candTra[i]->points[j].lat;
-			candidateTra[i][j].tID = candTra[i]->points[j].tid;
-		}
-	}
-
-	int queryLength = qTra.length;
-	int *candidateLength = (int*)malloc(sizeof(int)*candSize);
-	for (int i = 0; i <= candSize - 1; i++) {
-		candidateLength[i] = candTra[i]->length;
-	}
-
-	int* result = (int*)malloc(sizeof(int)*candSize);
-
-	MyTimer timer1;
-	timer1.start();
-
-	//CPU
-	int *resultCPU = (int*)malloc(sizeof(int)*candSize);
-	for (int i = 0; i <= candSize - 1; i++) {
-		//每个DP问题
-		SPoint *CPUqueryTra = queryTra, *CPUCandTra = candidateTra[i];
-		int CPUqueryLength = qTra.length, CPUCandLength = candidateLength[i];
-		int longest = 0;
-
-		const SPoint *tra1, *tra2;
-		int len1, len2;
-		if (CPUCandLength >= CPUqueryLength) {
-			tra1 = CPUqueryTra;
-			tra2 = CPUCandTra;
-			len1 = CPUqueryLength;
-			len2 = CPUCandLength;
-		}
-		else
-		{
-			tra1 = CPUCandTra;
-			tra2 = CPUqueryTra;
-			len1 = CPUCandLength;
-			len2 = CPUqueryLength;
-		}
-
-		if (CPUqueryLength >= longest) {
-			longest = CPUqueryLength;
-		}
-		else
-		{
-			longest = CPUCandLength;
-		}
-
-
-		int **stateTable = (int**)malloc(sizeof(int*)*(len1 + 1));
-		for (int j = 0; j <= len1; j++) {
-			stateTable[j] = (int*)malloc(sizeof(int)*(len2 + 1));
-		}
-		stateTable[0][0] = 0;
-		for (int row = 1; row <= len1; row++) {
-			stateTable[row][0] = row;
-		}
-		for (int col = 1; col <= len2; col++) {
-			stateTable[0][col] = col;
-		}
-
-		for (int row = 1; row <= len1; row++) {
-			for (int col = 1; col <= len2; col++) {
-				SPoint p1 = tra1[row - 1];
-				SPoint p2 = tra2[col - 1]; //这样做内存是聚集访问的吗？
-				bool subcost;
-				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
-					subcost = 0;
-				}
-				else
-					subcost = 1;
-				int myState = 0;
-				int state_ismatch = stateTable[row - 1][col - 1] + subcost;
-				int state_up = stateTable[row - 1][col] + 1;
-				int state_left = stateTable[row][col - 1] + 1;
-				if (state_ismatch < state_up)
-					myState = state_ismatch;
-				else if (state_left < state_up)
-					myState = state_left;
-				else
-					myState = state_ismatch;
-
-				stateTable[row][col] = myState;
-				//	if (row == len1&&col == len2)
-						//cout << myState << endl;
-			}
-		}
-
-		resultCPU[i] = stateTable[len1][len2];
-		//cout << resultCPU[i] << endl;
-	}
-	timer1.stop();
-	cout << "CPU Similarity Time:" << timer1.elapse() << "ms" << endl;
-	//GPU
-
-	timer1.start();
-	handleEDRdistance(queryTra, candidateTra, candSize, queryLength, candidateLength, result);
-	timer1.stop();
-	cout << "GPU Similarity Time:" << timer1.elapse() << "ms" << endl;
-
-	for (int i = 0; i <= candSize - 1; i++) {
-		EDRdistance[i] = result[i];
-	}
-	free(queryTra);
-	for (int i = 0; i <= candSize - 1; i++) {
-		free(candidateTra[i]);
-	}
-	free(candidateTra);
-	free(candidateLength);
-	free(result);
-
-	return 0;
-}
+//
+//int Grid::SimilarityQuery(Trajectory & qTra, Trajectory **candTra, const int candSize, float * EDRdistance)
+//{
+//	cout << candSize << endl;
+//	SPoint *queryTra = (SPoint*)malloc(sizeof(SPoint)*(qTra.length));
+//	for (int i = 0; i <= qTra.length - 1; i++) {
+//		queryTra[i].x = qTra.points[i].lon;
+//		queryTra[i].y = qTra.points[i].lat;
+//		queryTra[i].tID = qTra.points[i].tid;
+//	}
+//
+//	SPoint **candidateTra = (SPoint**)malloc(sizeof(SPoint*)*candSize);
+//
+//	for (int i = 0; i <= candSize - 1; i++) {
+//		candidateTra[i] = (SPoint*)malloc(sizeof(SPoint)*(candTra[i]->length)); //调试的时候这一部分总报内存错误，FFFFF
+//		for (int j = 0; j <= candTra[i]->length - 1; j++) {
+//			candidateTra[i][j].x = candTra[i]->points[j].lon;
+//			candidateTra[i][j].y = candTra[i]->points[j].lat;
+//			candidateTra[i][j].tID = candTra[i]->points[j].tid;
+//		}
+//	}
+//
+//	int queryLength = qTra.length;
+//	int *candidateLength = (int*)malloc(sizeof(int)*candSize);
+//	for (int i = 0; i <= candSize - 1; i++) {
+//		candidateLength[i] = candTra[i]->length;
+//	}
+//
+//	int* result = (int*)malloc(sizeof(int)*candSize);
+//
+//	MyTimer timer1;
+//	timer1.start();
+//
+//	//CPU
+//	int *resultCPU = (int*)malloc(sizeof(int)*candSize);
+//	for (int i = 0; i <= candSize - 1; i++) {
+//		//每个DP问题
+//		SPoint *CPUqueryTra = queryTra, *CPUCandTra = candidateTra[i];
+//		int CPUqueryLength = qTra.length, CPUCandLength = candidateLength[i];
+//		int longest = 0;
+//
+//		const SPoint *tra1, *tra2;
+//		int len1, len2;
+//		if (CPUCandLength >= CPUqueryLength) {
+//			tra1 = CPUqueryTra;
+//			tra2 = CPUCandTra;
+//			len1 = CPUqueryLength;
+//			len2 = CPUCandLength;
+//		}
+//		else
+//		{
+//			tra1 = CPUCandTra;
+//			tra2 = CPUqueryTra;
+//			len1 = CPUCandLength;
+//			len2 = CPUqueryLength;
+//		}
+//
+//		if (CPUqueryLength >= longest) {
+//			longest = CPUqueryLength;
+//		}
+//		else
+//		{
+//			longest = CPUCandLength;
+//		}
+//
+//
+//		int **stateTable = (int**)malloc(sizeof(int*)*(len1 + 1));
+//		for (int j = 0; j <= len1; j++) {
+//			stateTable[j] = (int*)malloc(sizeof(int)*(len2 + 1));
+//		}
+//		stateTable[0][0] = 0;
+//		for (int row = 1; row <= len1; row++) {
+//			stateTable[row][0] = row;
+//		}
+//		for (int col = 1; col <= len2; col++) {
+//			stateTable[0][col] = col;
+//		}
+//
+//		for (int row = 1; row <= len1; row++) {
+//			for (int col = 1; col <= len2; col++) {
+//				SPoint p1 = tra1[row - 1];
+//				SPoint p2 = tra2[col - 1]; //这样做内存是聚集访问的吗？
+//				bool subcost;
+//				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+//					subcost = 0;
+//				}
+//				else
+//					subcost = 1;
+//				int myState = 0;
+//				int state_ismatch = stateTable[row - 1][col - 1] + subcost;
+//				int state_up = stateTable[row - 1][col] + 1;
+//				int state_left = stateTable[row][col - 1] + 1;
+//				if (state_ismatch < state_up)
+//					myState = state_ismatch;
+//				else if (state_left < state_up)
+//					myState = state_left;
+//				else
+//					myState = state_ismatch;
+//
+//				stateTable[row][col] = myState;
+//				//	if (row == len1&&col == len2)
+//						//cout << myState << endl;
+//			}
+//		}
+//
+//		resultCPU[i] = stateTable[len1][len2];
+//		//cout << resultCPU[i] << endl;
+//	}
+//	timer1.stop();
+//	cout << "CPU Similarity Time:" << timer1.elapse() << "ms" << endl;
+//	//GPU
+//
+//	timer1.start();
+//	handleEDRdistance(queryTra, candidateTra, candSize, queryLength, candidateLength, result);
+//	timer1.stop();
+//	cout << "GPU Similarity Time:" << timer1.elapse() << "ms" << endl;
+//
+//	for (int i = 0; i <= candSize - 1; i++) {
+//		EDRdistance[i] = result[i];
+//	}
+//	free(queryTra);
+//	for (int i = 0; i <= candSize - 1; i++) {
+//		free(candidateTra[i]);
+//	}
+//	free(candidateTra);
+//	free(candidateLength);
+//	free(result);
+//
+//	return 0;
+//}
 
 
 

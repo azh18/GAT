@@ -36,7 +36,8 @@ int main()
 	//lon2 = +113.10222;
 	//cout << calculateDistance(lat1, lon1, lat2, lon2) << endl;
 	tradb = new Trajectory[MAX_TRAJ_SIZE];
-	PreProcess pp("SH_0.txt", "dataout.txt");
+	PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
+	//PreProcess pp("SH_0.txt", "dataout.txt");
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.1);
@@ -68,14 +69,28 @@ int main()
 	g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
 	timer.stop();
 	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
+
+	//Similarity on CPU
+	//int* simiResult = new int[10 * 20];
+	//g->SimilarityQueryBatch(&tradb[20], 20, simiResult,10);
+	//for (int i = 0; i <= 19; i++) {
+	//	cout << "Trajectory:" << i << endl;
+	//	for (int j = 0; j <= 9; j++) {
+	//		cout << simiResult[i * 10 + j] << "\t" << endl;
+	//	}
+	//}
+
+	//Similarity on GPU
 	int* simiResult = new int[10 * 20];
-	g->SimilarityQueryBatch(&tradb[20], 20, simiResult,10);
+	g->SimilarityQueryBatchOnGPU(&tradb[20], 20, simiResult, 10);
 	for (int i = 0; i <= 19; i++) {
 		cout << "Trajectory:" << i << endl;
 		for (int j = 0; j <= 9; j++) {
 			cout << simiResult[i * 10 + j] << "\t" << endl;
 		}
 	}
+
+
 	//g->rangeQuery(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
 	//g->rangeQueryGPU(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
 
