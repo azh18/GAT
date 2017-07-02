@@ -20,3 +20,7 @@ int handleEDRdistance(SPoint *queryTra, SPoint **candidateTra, int candidateNum,
 void CUDAwarmUp();
 int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, uint8_t *result, int maxTrajNum
 	, int maxJobNum, cudaStream_t stream);
+
+int EDRDistance_Batch_Handler(int queryTaskNum, TaskInfoTableForSimilarity* taskInfoTable, SPoint *queryTra, int* queryTraOffset, SPoint** candidateTraOffsets, int* queryLength, int *candidateLength, int *result, cudaStream_t *stream);
+
+//__global__ void testSharedMemory();

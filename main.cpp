@@ -20,7 +20,7 @@ map<string, tidLinkTable*>::iterator iter;
 //global
 Trajectory* tradb;
 string baseDate = "2014-07-01";
-void *baseAddrGPU = NULL;
+void* baseAddrGPU = NULL;
 
 
 int main()
@@ -35,6 +35,9 @@ int main()
 	//lat2 = +35.15221;
 	//lon2 = +113.10222;
 	//cout << calculateDistance(lat1, lon1, lat2, lon2) << endl;
+	//zero-copy ÉùÃ÷
+	//CUDA_CALL(cudaSetDeviceFlags(cudaDeviceMapHost));
+
 	tradb = new Trajectory[MAX_TRAJ_SIZE];
 	PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
 	//PreProcess pp("SH_0.txt", "dataout.txt");
@@ -44,7 +47,8 @@ int main()
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	//delete[] tradb;
 	int count = 0;
-	for (int i = 0; i <= g->cellnum - 1; i++) {
+	for (int i = 0; i <= g->cellnum - 1; i++)
+	{
 		if (g->cellPtr[i].subTraNum == 0)
 			count++;
 	}
@@ -52,23 +56,26 @@ int main()
 	//int temp[7] = { 553,554,555,556,557,558,559 };
 	//int sizetemp = 7;
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
-	CPURangeQueryResult* resultTable=NULL;
+	CPURangeQueryResult* resultTable = NULL;
 	int RangeQueryResultSize = 0;
 	MBB mbbArray[1000];
 	int* resultSize = NULL;
-	for (int i = 0; i <= 1000;i++)
+	for (int i = 0; i <= 1000; i++)
 		mbbArray[i] = MBB(121.1, 31.1, 121.3, 31.3);
 	MyTimer timer;
 	timer.start();
 	g->rangeQueryBatch(mbbArray, 1000, resultTable, resultSize);
 	timer.stop();
 	cout << "CPU Time:" << timer.elapse() << "ms" << endl;
-	
+
 	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
+	void* baseAddr = baseAddrGPU;
 	timer.start();
 	g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
 	timer.stop();
 	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
+	CUDA_CALL(cudaFree(baseAddr));
+	baseAddrGPU = NULL;
 
 	//Similarity on CPU
 	//int* simiResult = new int[10 * 20];
@@ -83,9 +90,11 @@ int main()
 	//Similarity on GPU
 	int* simiResult = new int[10 * 20];
 	g->SimilarityQueryBatchOnGPU(&tradb[20], 20, simiResult, 10);
-	for (int i = 0; i <= 19; i++) {
+	for (int i = 0; i <= 19; i++)
+	{
 		cout << "Trajectory:" << i << endl;
-		for (int j = 0; j <= 9; j++) {
+		for (int j = 0; j <= 9; j++)
+		{
 			cout << simiResult[i * 10 + j] << "\t" << endl;
 		}
 	}
@@ -112,7 +121,8 @@ int main()
 	ofstream ftest;
 	ftest.open("ftest.txt", ios_base::out);
 	ftest << g->totalPointNum << endl;
-	for (int i = 0; i <= g->cellnum - 1; i++) {
+	for (int i = 0; i <= g->cellnum - 1; i++)
+	{
 		ftest << g->cellPtr[i].totalPointNum << ",";
 	}
 	ftest << endl;
@@ -126,12 +136,15 @@ int main()
 	return 0;
 }
 
-int WriteTrajectoryToFile(string outFileName,int numTra) {
+int WriteTrajectoryToFile(string outFileName, int numTra)
+{
 	ofstream fout;
 	fout.open(outFileName, ios_base::out);
-	for (int i = 1; i <= numTra; i++) {
+	for (int i = 1; i <= numTra; i++)
+	{
 		fout << i << ": ";
-		for (int j = 0; j <= tradb[i].length - 1; j++) {
+		for (int j = 0; j <= tradb[i].length - 1; j++)
+		{
 			fout << tradb[i].points[j].lon << "," << tradb[i].points[j].lat << ";";
 		}
 		fout << endl;

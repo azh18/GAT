@@ -1,10 +1,11 @@
 #pragma once
 #define MAX_TRAJ_SIZE 50000
-#define MAXLENGTH 4096
+//受到GPU可用的shared memory限制
+#define MAXLENGTH 1024
 //MAXGAP是最大轨迹内时间间隔，如果超过这个间隔应该被视为两条轨迹
 #define MAXGAP 3600
 
-#define EPSILON 0.001
+#define EPSILON 0.1
 #define MAXTHREAD 256
 
 //每个node内包含的点的个数上限
