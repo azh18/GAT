@@ -274,7 +274,7 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	{
 		if(threadID+i<lenT)
 		{
-			traData[threadID + i] = *(candidateTraOffsets[blockID] + threadID + i);
+			traData[threadID + i] = SPoint(candidateTraOffsets[blockID][threadID + i]);
 		}
 	}
 

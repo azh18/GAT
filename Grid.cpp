@@ -474,7 +474,7 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//}
 	//查询结束，善后，清空stateTable，清空gpu等
 	this->stateTableRange = stateTableAllocate;
-
+	cudaStreamDestroy(stream);
 	return 0;
 }
 
@@ -566,6 +566,7 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 
 	//准备好之后，开始做查询
 	const int k = 10;
+	timer.start();
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{
 		SPoint* queryTra = (SPoint*)malloc(sizeof(SPoint) * qTra[qID].length);
@@ -575,7 +576,7 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 			queryTra[i].y = qTra[qID].points[i].lat;
 		}
 		int worstNow = 9999999;
-		timer.start();
+		//timer.start();
 		//printf("qID:%d", qID);
 		while (worstNow > queryQueue[qID].top().FD)
 		{
@@ -645,19 +646,27 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 			free(candidateTraLength);
 			free(candidateTra);
 		}
-		timer.stop();
-		cout << "Query Trajectory Length:" << qTra[qID].length << endl;
-		cout << "Part3 time:" << timer.elapse() << endl;
-		timer.start();
+		//timer.stop();
+		//cout << "Query Trajectory Length:" << qTra[qID].length << endl;
+		//cout << "Part3 time:" << timer.elapse() << endl;
+		//timer.start();
 		free(queryTra);
+
+		//timer.stop();
+		//cout << "Part4 time:" << timer.elapse() << endl;
+	}
+	for (int qID = 0; qID <= queryTrajNum - 1;qID++)
+	{
 		for (int i = 0; i <= kValue - 1; i++)
 		{
 			topKSimilarityTraj[qID * kValue + i] = EDRCalculated[qID].top().traID;
 			EDRCalculated[qID].pop();
 		}
-		timer.stop();
-		cout << "Part4 time:" << timer.elapse() << endl;
 	}
+
+	timer.stop();
+	cout << "Part3 time:" << timer.elapse() << endl;
+
 	delete[] EDRCalculated;
 	delete[] numElemInCalculatedQueue;
 	delete[] freqVectors;
@@ -765,6 +774,9 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 //备用思路：分别处理每一条查询轨迹，用不同stream并行
 {
 	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
+	void* whileAddrGPU = NULL;
+	CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU), 256 * 1024 * 1024));
+	void* whileAddrGPUBase = whileAddrGPU;
 	//当前分配到的地址
 	void* nowAddrGPU = NULL;
 	cudaStream_t defaultStream;
@@ -803,6 +815,8 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	timer.stop();
 	cout << "Part2 time:" << timer.elapse() << endl;
 	//用一个优先队列存储当前最优结果，大顶堆，保证随时可以pop出差的结果
+	timer.start();
+
 	priority_queue<FDwithID, vector<FDwithID>, cmpBig>* EDRCalculated = new priority_queue<FDwithID, vector<FDwithID>, cmpBig>[queryTrajNum];
 	int* numElemInCalculatedQueue = new int[queryTrajNum]; //保存当前优先队列结果，保证优先队列大小不大于kValue
 	for (int i = 0; i <= queryTrajNum - 1; i++)
@@ -880,6 +894,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	map<int, void*> traID_baseAddr;
 	SPoint* candidateTraGPU = (SPoint*)nowAddrGPU;
 
+
 	while (!isAllFinished)
 	{
 		int validCandTrajNum = 0;
@@ -897,7 +912,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 				{
 					validQueryTraNum--;
 					isFinished[qID] = TRUE;
-					break;
+					continue;
 				}
 				else
 				{
@@ -964,28 +979,30 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 				}
 			}
 		}
+
 		//构建candidateTraj完成，构建candidateTrajLength
-		int* candidateTraLengthGPU = (int*)nowAddrGPU;
+		int* candidateTraLengthGPU = (int*)whileAddrGPU;
 		CUDA_CALL(cudaMemcpyAsync(candidateTraLengthGPU, candidateTraLength, sizeof(int)*validCandTrajNum, cudaMemcpyHostToDevice, defaultStream));
 		// nowAddrGPU 始终是指向下一个空闲的GPU地址
-		nowAddrGPU = (void*)((int*)nowAddrGPU + validCandTrajNum);
+		whileAddrGPU = (void*)((int*)whileAddrGPU + validCandTrajNum);
 
 		//构建TaskInfoTable
-		TaskInfoTableForSimilarity* taskInfoTableGPU = (TaskInfoTableForSimilarity*)nowAddrGPU;
+		TaskInfoTableForSimilarity* taskInfoTableGPU = (TaskInfoTableForSimilarity*)whileAddrGPU;
 		CUDA_CALL(cudaMemcpyAsync(taskInfoTableGPU, taskInfoTable, sizeof(TaskInfoTableForSimilarity)*validCandTrajNum, cudaMemcpyHostToDevice, defaultStream));
 		// nowAddrGPU 始终是指向下一个空闲的GPU地址
-		nowAddrGPU = (void*)((TaskInfoTableForSimilarity*)nowAddrGPU + validCandTrajNum);
+		whileAddrGPU = (void*)((TaskInfoTableForSimilarity*)whileAddrGPU + validCandTrajNum);
 
 		//复制candidate的地址到gpu中
-		SPoint** candidateOffsetsGPU = (SPoint**)nowAddrGPU;
+		SPoint** candidateOffsetsGPU = (SPoint**)whileAddrGPU;
 		CUDA_CALL(cudaMemcpyAsync(candidateOffsetsGPU, candidateOffsets, sizeof(SPoint*)*validCandTrajNum, cudaMemcpyHostToDevice, defaultStream));
 		// nowAddrGPU 始终是指向下一个空闲的GPU地址
-		nowAddrGPU = (void*)((SPoint**)nowAddrGPU + validCandTrajNum);
+		whileAddrGPU = (void*)((SPoint**)whileAddrGPU + validCandTrajNum);
 
 		//构建candidateTraj和candidateLength完成，准备并行Similarity search
 		//只需要查询isFinished为false的queryTra，至于是哪些可以直接看offsetTableCandidateTra
 		int *resultReturned = new int[queryTrajNum*k];
-		int* resultReturnedGPU = (int*)nowAddrGPU;
+		int* resultReturnedGPU = (int*)whileAddrGPU;
+		whileAddrGPU = (void*)((int*)whileAddrGPU + k*queryTrajNum);
 	
 		//CUDA_CALL(cudaMalloc((void**)resultReturnedGPU, sizeof(int)*k*queryTrajNum));
 
@@ -997,7 +1014,11 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		if (validQueryTraNum * k == validCandTrajNum)
 		{
 			EDRDistance_Batch_Handler(validCandTrajNum, taskInfoTableGPU, queryTraGPUBase, queryTraOffsetGPU, candidateOffsetsGPU, queryLengthGPU, candidateTraLengthGPU, resultReturnedGPU, &defaultStream);
-			CUDA_CALL(cudaMemcpyAsync(resultReturned, nowAddrGPU, sizeof(int)*k*queryTrajNum, cudaMemcpyDeviceToHost, defaultStream));
+			CUDA_CALL(cudaMemcpyAsync(resultReturned, resultReturnedGPU, sizeof(int)*k*queryTrajNum, cudaMemcpyDeviceToHost, defaultStream));
+		}
+		else
+		{
+			printf("error in line 1007\n");
 		}
 
 
@@ -1032,7 +1053,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 			worstNow[qID] = EDRCalculated[qID].top().FD;
 
-
+		
 		bool temp = TRUE;
 		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 		{
@@ -1040,7 +1061,10 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		}
 		isAllFinished = temp;
 		delete[] resultReturned;
+		//GPU指针回到while开始的地方
+		whileAddrGPU = whileAddrGPUBase;
 	}
+
 
 	/*
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
@@ -1122,8 +1146,23 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	}
 	*/
 
+	timer.stop();
+	cout << "Part3 time:" << timer.elapse() << endl;
+
+	//输出结果
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
+		for (int i = 0; i <= kValue - 1; i++)
+		{
+			topKSimilarityTraj[qID * kValue + i] = EDRCalculated[qID].top().traID;
+			EDRCalculated[qID].pop();
+		}
+	}
+
 	for (int i = 0; i <= queryTrajNum - 1; i++)
 		delete[] candidateTrajID[i];
+	free(taskInfoTable);
+	free(candidateTrajOffsetTable);
+	free(candidateOffsets);
 	delete[] candidateTrajID;
 	free(candidateTra);
 	delete[] isFinished;
@@ -1135,6 +1174,9 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	delete[] numElemInCalculatedQueue;
 	delete[] freqVectors;
 	delete[] queryQueue;
+	delete[] queryTraLength;
+	CUDA_CALL(cudaFree(baseAddrGPU));
+	cudaStreamDestroy(defaultStream);
 	return 0;
 }
 

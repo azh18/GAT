@@ -39,8 +39,8 @@ int main()
 	//CUDA_CALL(cudaSetDeviceFlags(cudaDeviceMapHost));
 
 	tradb = new Trajectory[MAX_TRAJ_SIZE];
-	PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
-	//PreProcess pp("SH_0.txt", "dataout.txt");
+	//PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
+	PreProcess pp("SH_0.txt", "dataout.txt");
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.1);
@@ -68,28 +68,29 @@ int main()
 	timer.stop();
 	cout << "CPU Time:" << timer.elapse() << "ms" << endl;
 
-	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
-	void* baseAddr = baseAddrGPU;
-	timer.start();
-	g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
-	timer.stop();
-	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
-	CUDA_CALL(cudaFree(baseAddr));
-	baseAddrGPU = NULL;
+	//CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
+	//void* baseAddr = baseAddrGPU;
+	//timer.start();
+	//g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
+	//timer.stop();
+	//cout << "GPU Time:" << timer.elapse() << "ms" << endl;
+	//CUDA_CALL(cudaFree(baseAddr));
+	//baseAddrGPU = NULL;
 
 	//Similarity on CPU
-	//int* simiResult = new int[10 * 20];
-	//g->SimilarityQueryBatch(&tradb[20], 20, simiResult,10);
-	//for (int i = 0; i <= 19; i++) {
-	//	cout << "Trajectory:" << i << endl;
-	//	for (int j = 0; j <= 9; j++) {
-	//		cout << simiResult[i * 10 + j] << "\t" << endl;
-	//	}
-	//}
+	int* simiResult = new int[10 * 100];
+	g->SimilarityQueryBatch(&tradb[20], 100, simiResult,10);
+	for (int i = 0; i <= 19; i++) {
+		cout << "Trajectory:" << i << endl;
+		for (int j = 0; j <= 9; j++) {
+			cout << simiResult[i * 10 + j] << "\t" << endl;
+		}
+	}
+	delete[] simiResult;
 
 	//Similarity on GPU
-	int* simiResult = new int[10 * 20];
-	g->SimilarityQueryBatchOnGPU(&tradb[20], 20, simiResult, 10);
+	simiResult = new int[10 * 100];
+	g->SimilarityQueryBatchOnGPU(&tradb[20], 100, simiResult, 10);
 	for (int i = 0; i <= 19; i++)
 	{
 		cout << "Trajectory:" << i << endl;
