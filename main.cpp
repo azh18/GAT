@@ -68,14 +68,14 @@ int main()
 	timer.stop();
 	cout << "CPU Time:" << timer.elapse() << "ms" << endl;
 
-	//CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
-	//void* baseAddr = baseAddrGPU;
-	//timer.start();
-	//g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
-	//timer.stop();
-	//cout << "GPU Time:" << timer.elapse() << "ms" << endl;
-	//CUDA_CALL(cudaFree(baseAddr));
-	//baseAddrGPU = NULL;
+	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
+	void* baseAddr = baseAddrGPU;
+	timer.start();
+	g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
+	timer.stop();
+	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
+	CUDA_CALL(cudaFree(baseAddr));
+	baseAddrGPU = NULL;
 
 	//Similarity on CPU
 	int* simiResult = new int[10 * 100];

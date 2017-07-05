@@ -106,7 +106,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra,int candid
 				else if (state_left < state_up)
 					myState = state_left;
 				else
-					myState = state_ismatch;
+					myState = state_up;
 				//去除if的表达方式，是否可以提升性能？
 				//myState = (state_ismatch < state_up) * state_ismatch + (state_left < state_up) * state_up + (state_left >= state_up) * state_left;
 				
@@ -130,7 +130,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra,int candid
 				else if (state_left < state_up)
 					myState = state_left;
 				else
-					myState = state_ismatch;
+					myState = state_up;
 			}
 		}
 		else
@@ -152,7 +152,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra,int candid
 				else if (state_left < state_up)
 					myState = state_left;
 				else
-					myState = state_ismatch;
+					myState = state_up;
 			}
 		}
 		//写myState到share内存,ckecked
@@ -322,14 +322,18 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 					int state_ismatch = state[0][nodeID] + subcost;
 					int state_up = state[1][nodeID] + 1;
 					int state_left = state[1][nodeID + 1] + 1;
-					if (state_ismatch < state_up)
-						myState[nodeID/MAXTHREAD] = state_ismatch;
-					else if (state_left < state_up)
-						myState[nodeID / MAXTHREAD] = state_left;
-					else
-						myState[nodeID / MAXTHREAD] = state_ismatch;
+					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
+					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
 					//去除if的表达方式，是否可以提升性能？
-					//myState = (state_ismatch < state_up) * state_ismatch + (state_left < state_up) * state_up + (state_left >= state_up) * state_left;
+					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
+					//if ((state_ismatch < state_up) && (state_ismatch < state_left))
+					//	myState[nodeID/MAXTHREAD] = state_ismatch;
+					//else if ((state_left < state_up) && ((state_left < state_ismatch)))
+					//	myState[nodeID / MAXTHREAD] = state_left;
+					//else
+					//	myState[nodeID / MAXTHREAD] = state_up;
+					////去除if的表达方式，是否可以提升性能？
+					//myState[nodeID / MAXTHREAD] = (state_ismatch < state_up) && (state_ismatch < state_left) * state_ismatch + ((state_left < state_up) && ((state_left < state_ismatch))) * state_left + !(((state_ismatch < state_up) && (state_ismatch < state_left))||(((state_left < state_up) && ((state_left < state_ismatch))))) * state_up;
 				}
 			}
 		}
@@ -348,12 +352,16 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 					int state_ismatch = state[0][nodeID + 1] + subcost;
 					int state_up = state[1][nodeID] + 1;
 					int state_left = state[1][nodeID + 1] + 1;
-					if (state_ismatch < state_up)
-						myState[nodeID / MAXTHREAD] = state_ismatch;
-					else if (state_left < state_up)
-						myState[nodeID / MAXTHREAD] = state_left;
-					else
-						myState[nodeID / MAXTHREAD] = state_ismatch;
+					//if (state_ismatch < state_up)
+					//	myState[nodeID / MAXTHREAD] = state_ismatch;
+					//else if (state_left < state_up)
+					//	myState[nodeID / MAXTHREAD] = state_left;
+					//else
+					//	myState[nodeID / MAXTHREAD] = state_up;
+					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
+					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
+					//去除if的表达方式，是否可以提升性能？
+					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
 				}
 			}
 		}
@@ -373,12 +381,16 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 					int state_ismatch = state[0][nodeID] + subcost;
 					int state_up = state[1][nodeID] + 1;
 					int state_left = state[1][nodeID + 1] + 1;
-					if (state_ismatch < state_up)
-						myState[nodeID / MAXTHREAD] = state_ismatch;
-					else if (state_left < state_up)
-						myState[nodeID / MAXTHREAD] = state_left;
-					else
-						myState[nodeID / MAXTHREAD] = state_ismatch;
+					//if (state_ismatch < state_up)
+					//	myState[nodeID / MAXTHREAD] = state_ismatch;
+					//else if (state_left < state_up)
+					//	myState[nodeID / MAXTHREAD] = state_left;
+					//else
+					//	myState[nodeID / MAXTHREAD] = state_up;
+					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
+					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
+					//去除if的表达方式，是否可以提升性能？
+					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
 				}
 			}
 		}

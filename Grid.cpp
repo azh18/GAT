@@ -743,12 +743,16 @@ int Grid::SimilarityExecuter(SPoint* queryTra, SPoint** candidateTra, int queryL
 				int state_ismatch = stateTable[row - 1][col - 1] + subcost;
 				int state_up = stateTable[row - 1][col] + 1;
 				int state_left = stateTable[row][col - 1] + 1;
-				if (state_ismatch < state_up)
-					myState = state_ismatch;
-				else if (state_left < state_up)
-					myState = state_left;
-				else
-					myState = state_ismatch;
+				//if (state_ismatch < state_up)
+				//	myState = state_ismatch;
+				//else if (state_left < state_up)
+				//	myState = state_left;
+				//else
+				//	myState = state_up;
+				bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
+				bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
+				//去除if的表达方式，是否可以提升性能？
+				myState = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
 
 				stateTable[row][col] = myState;
 				//	if (row == len1&&col == len2)
@@ -894,9 +898,10 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	map<int, void*> traID_baseAddr;
 	SPoint* candidateTraGPU = (SPoint*)nowAddrGPU;
 
-
+	MyTimer tt;
 	while (!isAllFinished)
 	{
+		tt.start();
 		int validCandTrajNum = 0;
 		int validQueryTraNum = queryTrajNum;
 		int validQueryIdx = 0;
@@ -979,7 +984,9 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 				}
 			}
 		}
-
+		tt.stop();
+		cout << "Part3.1 time:" << tt.elapse() << endl;
+		tt.start();
 		//构建candidateTraj完成，构建candidateTrajLength
 		int* candidateTraLengthGPU = (int*)whileAddrGPU;
 		CUDA_CALL(cudaMemcpyAsync(candidateTraLengthGPU, candidateTraLength, sizeof(int)*validCandTrajNum, cudaMemcpyHostToDevice, defaultStream));
@@ -1008,8 +1015,9 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 
 
 
-
-
+		tt.stop();
+		cout << "Part3.2 time:" << tt.elapse() << endl;
+		tt.start();
 		//如果上面的分配没有错，开始计算EDR
 		if (validQueryTraNum * k == validCandTrajNum)
 		{
@@ -1021,7 +1029,9 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 			printf("error in line 1007\n");
 		}
 
-
+		tt.stop();
+		cout << "Part3.3 time:" << tt.elapse() << endl;
+		tt.start();
 		//并行计算结束后，更新worstNow以及写入结果
 		for (int idx = 0; idx <= k * validQueryTraNum - 1; idx++)
 		{
@@ -1063,6 +1073,8 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		delete[] resultReturned;
 		//GPU指针回到while开始的地方
 		whileAddrGPU = whileAddrGPUBase;
+		tt.stop();
+		cout << "Part3.4 time:" << tt.elapse() << endl;
 	}
 
 
