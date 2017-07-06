@@ -574,6 +574,7 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 		{
 			queryTra[i].x = qTra[qID].points[i].lon;
 			queryTra[i].y = qTra[qID].points[i].lat;
+			queryTra[i].tID = qTra[qID].tid;
 		}
 		int worstNow = 9999999;
 		//timer.start();
@@ -610,6 +611,7 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 				candidateTraLength[i] = this->cellBasedTrajectory[candidateTrajID[i]].trajLength;
 			}
 			//第二步：计算EDR
+			printf("%d", qID);
 			int resultReturned[k];
 			this->SimilarityExecuter(queryTra, candidateTra, qTra[qID].length, candidateTraLength, k, resultReturned);
 			//更新worstNow
@@ -686,6 +688,7 @@ int Grid::SimilarityExecuter(SPoint* queryTra, SPoint** candidateTra, int queryL
 
 		const SPoint *tra1, *tra2;
 		int len1, len2;
+		//printf("%d,%d\t", len1, len2);
 		if (CPUCandLength >= CPUqueryLength)
 		{
 			tra1 = CPUqueryTra;
