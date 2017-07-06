@@ -47,7 +47,12 @@ int main()
 
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
-	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.1);
+	
+	for (int i = 1; i <= 10000;i++)
+	{
+		printf("%d,%d\t", i, tradb[i].length);
+	}
+	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	//delete[] tradb;
 	int count = 0;
@@ -80,10 +85,15 @@ int main()
 	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
 	CUDA_CALL(cudaFree(baseAddr));
 	baseAddrGPU = NULL;
+	Trajectory* qTra = new Trajectory[100];
+	for (int i = 0; i <= 99; i++)
+	{
+		qTra[i] = tradb[i+20]; // length is 1024
+	}
 
 	//Similarity on CPU
 	int* simiResult = new int[10 * 100];
-	g->SimilarityQueryBatch(&tradb[20], 100, simiResult,10);
+	g->SimilarityQueryBatch(qTra, 100, simiResult,10);
 	for (int i = 0; i <= 19; i++) {
 		cout << "Trajectory:" << i << endl;
 		for (int j = 0; j <= 9; j++) {
@@ -92,9 +102,11 @@ int main()
 	}
 	delete[] simiResult;
 
+
+
 	//Similarity on GPU
 	simiResult = new int[10 * 100];
-	g->SimilarityQueryBatchOnGPU(&tradb[20], 100, simiResult, 10);
+	g->SimilarityQueryBatchOnGPU(qTra, 100, simiResult, 10);
 	for (int i = 0; i <= 19; i++)
 	{
 		cout << "Trajectory:" << i << endl;

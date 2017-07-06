@@ -259,7 +259,7 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	//if (lenT > queryLength)
 	//	iterNum = lenT;
 	const int iterNum = thisQueryLength + lenT - 1;
-	__shared__ int state[2][MAXLENGTH]; //用于存储前两次的结果（占用8KB）
+	__shared__ int state[2][MAXLENGTH+1]; //用于存储前两次的结果（占用8KB）
 	state[0][0] = 0;
 	state[1][0] = 1;
 	state[1][1] = 1;
@@ -267,26 +267,28 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	//首先把轨迹存在共享内存里
 	//这里面临着share memory是否够用的问题，书上写的是64KB，然而K80似乎有512KB
 	//如果是64KB的话，每条轨迹最长1024个点（两个轨迹共占用24KB）
-	__shared__ SPoint queryTraS[MAXLENGTH];
-	__shared__ SPoint traData[MAXLENGTH];
+	//__shared__ SPoint queryTraS[MAXLENGTH];
+	//__shared__ SPoint traData[MAXLENGTH];
 
-	for (int i = 0; i <= lenT - 1;i+=MAXTHREAD)
-	{
-		if(threadID+i<lenT)
-		{
-			traData[threadID + i] = SPoint(candidateTraOffsets[blockID][threadID + i]);
-		}
-	}
+
+	//for (int i = 0; i <= lenT - 1;i+=MAXTHREAD)
+	//{
+	//	if(threadID+i<lenT)
+	//	{
+	//		traData[threadID + i] = SPoint(candidateTraOffsets[blockID][threadID + i]);
+	//	}
+	//}
 
 	SPoint* queryTraBaseAddr = queryTra + queryTraOffset[thisQueryID];
-	for (int i = 0; i <= thisQueryLength - 1;i+=MAXTHREAD)
-	{
-		if(threadID+i<thisQueryLength)
-		{
-			queryTraS[threadID + i] = *(queryTraBaseAddr + threadID + i);
-		}
-	}
-
+	//for (int i = 0; i <= thisQueryLength - 1;i+=MAXTHREAD)
+	//{
+	//	if(threadID+i<thisQueryLength)
+	//	{
+	//		queryTraS[threadID + i] = *(queryTraBaseAddr + threadID + i);
+	//	}
+	//}
+	SPoint *queryTraS = queryTraBaseAddr;
+	SPoint *traData = candidateTraOffsets[blockID];
 	const SPoint *tra1, *tra2; //保证tra1比tra2短
 	int len1, len2;
 	if (lenT >= thisQueryLength) {

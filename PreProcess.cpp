@@ -271,6 +271,7 @@ bool PreProcess::readTraFromFormatedFile(string outFileName)
 		else
 		{
 			// ±àºÅÎªcnt - 2 µÄ¹ì¼£
+			tradb[cnt - 2].tid = cnt - 2;
 			const char* str_c = s.c_str();
 			char* thisLineStr = (char*)malloc(s.length());
 			memcpy(thisLineStr, str_c, s.length());
