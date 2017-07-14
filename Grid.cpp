@@ -271,6 +271,8 @@ int Grid::addDatasetToGrid(Trajectory* db, int traNum)
 		}
 		free(tempCntForTraj);
 	}
+	// Transfer FV to GPU
+	
 
 
 	////Delta Encoding的cell连续存储
@@ -473,6 +475,7 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//	}
 	//}
 	//查询结束，善后，清空stateTable，清空gpu等
+	CUDA_CALL(cudaFree(stateTableGPU));
 	this->stateTableRange = stateTableAllocate;
 	cudaStreamDestroy(stream);
 	return 0;
@@ -794,7 +797,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 {
 	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
 	void* whileAddrGPU = NULL;
-	CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU), 256 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU), 16 * 1024 * 1024));
 	void* whileAddrGPUBase = whileAddrGPU;
 	//当前分配到的地址
 	void* nowAddrGPU = NULL;

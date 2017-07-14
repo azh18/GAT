@@ -1,6 +1,7 @@
 #include "FVTable.h"
 #include <queue>
-
+#include "WinTimer.h"
+#include "cudaKernel.h"
 
 
 int FVTable::initFVTable(int trajNum,int cellNum)
@@ -75,10 +76,12 @@ int FVTable::findNeighbor(int cellID, int * neighborID)
 
 int FVTable::formPriorityQueue(priority_queue<FDwithID, vector<FDwithID>, cmp> *queue, map<int, int>* freqVectorQ)
 {
+	MyTimer time1;
 	for (int i = 1; i <= this->trajNum - 1; i++) {
 		//对于该轨迹，计算与查询的FV的FD
 		//首先，计算两个vector的对应元素减法
 		//原始轨迹减去查询轨迹
+		time1.start();
 		int tempVector;// = (int*)malloc(sizeof(int)*this->cellNum);
 		map<int, int> tempPositive;
 		map<int, int> tempNegative;
@@ -98,6 +101,9 @@ int FVTable::formPriorityQueue(priority_queue<FDwithID, vector<FDwithID>, cmp> *
 					tempNegative.insert(pair<int, int>(cid, -tempVector));
 			}
 		}
+		time1.stop();
+		printf("prun time 1:%f\n", time1.elapse());
+		time1.start();
 		//对于在原始轨迹中没有的
 		for (map<int, int>::iterator iter = freqVectorQ->begin(); iter != freqVectorQ->end(); iter++) {
 			int cid = iter->first;
@@ -114,6 +120,9 @@ int FVTable::formPriorityQueue(priority_queue<FDwithID, vector<FDwithID>, cmp> *
 				tempNegative.insert(pair<int, int>(cid, -tempVector));
 
 		}
+		time1.stop();
+		printf("prun time 2:%f\n", time1.elapse());
+		time1.start();
 		//减法完成
 		//对正负两个map对邻接的cell处理
 		for (map<int, int>::iterator iter = tempPositive.begin(); iter != tempPositive.end(); iter++) {
@@ -144,6 +153,9 @@ int FVTable::formPriorityQueue(priority_queue<FDwithID, vector<FDwithID>, cmp> *
 				}
 			}
 		}
+		time1.stop();
+		printf("prun time 3:%f\n", time1.elapse());
+		time1.start();
 		for (map<int, int>::iterator iter = tempNegative.begin(); iter != tempNegative.end(); iter++) {
 			//找邻接的cell
 			int cid = iter->first;
@@ -172,6 +184,9 @@ int FVTable::formPriorityQueue(priority_queue<FDwithID, vector<FDwithID>, cmp> *
 				}
 			}
 		}
+		time1.stop();
+		printf("prun time 4:%f\n", time1.elapse());
+		time1.start();
 		//邻接情况处理完成
 		int sumPosi = 0, sumNega = 0;
 		for (map<int, int>::iterator iter = tempPositive.begin(); iter != tempPositive.end(); iter++)
@@ -184,8 +199,113 @@ int FVTable::formPriorityQueue(priority_queue<FDwithID, vector<FDwithID>, cmp> *
 		fd.traID = i;
 		fd.FD = resultLB;
 		queue->push(fd);
+		time1.stop();
+		printf("prun time 5:%f\n", time1.elapse());
 	}
 	return 0;
+}
+
+int FVTable::transferFVtoGPU()
+{
+	CUDA_CALL(cudaMalloc((void**)&this->FVinfoGPU, 16 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)&this->FVTableOffset, 256 * 1024 * 1024));
+	//列式存储，容量和之前offset相同
+	CUDA_CALL(cudaMalloc((void**)&this->FVTableGPU, 256 * 1024 * 1024));
+	//列式存储，这个大小可以通过控制每次并行的轨迹数目来控制
+	CUDA_CALL(cudaMalloc((void**)&this->queryFVGPU, 256 * 1024 * 1024));
+	vector<map<int, short>> FVTable;
+	FVTable.resize(this->cellNum+1);
+	intPair* FVTableOffsetCPU = new intPair[this->cellNum*30000];
+	vector<map<int, int>> FVTableOffsetMap;
+	FVTableOffsetMap.resize(this->trajNum);
+
+	intPair* FVInfoCPU = new intPair[this->trajNum];
+	int cnt = 0;
+	for (int i = 1; i <= this->trajNum - 1; i++) {
+		map<int, int>::iterator iter;
+		FVInfoCPU[i].int_1 = i;
+		FVInfoCPU[i].int_2 = cnt;
+		for (iter = this->FreqVector[i].begin(); iter != this->FreqVector[i].end(); iter++)
+		{
+			int cellIdx = iter->first;
+			FVTable[cellIdx][i] = iter->second;
+			FVTableOffsetMap[i][iter->first] = 0;
+		}
+	}
+
+	short *FVPtr = (short*)this->FVTableGPU;
+	intPair *FVinfoPtr = (intPair*)this->FVinfoGPU;
+	cudaStream_t stream;
+	cudaStreamCreate(&stream);
+	CUDA_CALL(cudaMemcpyAsync(FVinfoPtr, &FVInfoCPU, sizeof(intPair), cudaMemcpyHostToDevice, stream));
+
+	cnt = 0;
+	for (int cell = 0; cell <= this->cellNum - 1;cell++)
+	{
+		map<int, short>::iterator iter;
+		for (iter = FVTable[cell].begin(); iter != FVTable[cell].end();iter++)
+		{
+			CUDA_CALL(cudaMemcpyAsync(FVPtr, &iter->second, sizeof(short), cudaMemcpyHostToDevice, stream));
+			//*FVPtr = iter->second;
+			FVTableOffsetMap[iter->first][cell] = cnt; //cnt实际上是从FVTable一开始算的offset
+			cnt++;
+			FVPtr++;
+		}
+	}
+	int FVTableLength = cnt;
+	intPair *FVTableOffsetG = (intPair*)this->FVTableOffset;
+	for (int i = 1; i <= this->trajNum - 1; i++) {
+		map<int, int>::iterator iter;
+		for (iter = FVTableOffsetMap[i].begin(); iter != FVTableOffsetMap[i].end();iter++)
+		{
+			intPair tempPair;
+			tempPair.int_1 = iter->first;
+			tempPair.int_2 = iter->second;
+			CUDA_CALL(cudaMemcpyAsync(FVTableOffsetG, &tempPair, sizeof(intPair), cudaMemcpyHostToDevice, stream));
+			FVTableOffsetG++;
+		}
+	}
+
+	//constructing.......
+
+	//int cnt = 0;
+	//for (int i = 1; i <= this->trajNum - 1; i++) {
+	//	map<int, int>::iterator iter;
+	//	intPair tempInfoPair;
+	//	tempInfoPair.int_1 = i;
+	//	tempInfoPair.int_2 = cnt;
+	//	CUDA_CALL(cudaMemcpyAsync(FVinfoPtr, &tempInfoPair, sizeof(intPair), cudaMemcpyHostToDevice, stream));
+	//	FVinfoPtr++;
+	//	for (iter = this->FreqVector[i].begin(); iter != this->FreqVector[i].end();iter++)
+	//	{
+	//		intPair tempPair;
+	//		tempPair.int_1 = iter->first;
+	//		tempPair.int_2 = iter->second;
+	//		CUDA_CALL(cudaMemcpyAsync(FVPtr, &tempPair, sizeof(intPair), cudaMemcpyHostToDevice, stream));
+	//		FVPtr++;
+	//		cnt++;
+	//	}
+	//}
+	cudaStreamDestroy(stream);
+}
+
+int FVTable::formPriorityQueueGPU(priority_queue<FDwithID, vector<FDwithID>, cmp>* queue, map<int, int>* freqVectorQ)
+{
+	cudaStream_t stream;
+	cudaStreamCreate(&stream);
+	//传递Query的freqVector到GPU中
+	int *queryFV = new int[this->cellNum];
+	for (map<int, int>::iterator iter = freqVectorQ->begin(); iter != freqVectorQ->end();iter++)
+	{
+		queryFV[iter->first] = iter->second;
+	}
+	int* queryFVGPU = (int*)this->queryFVGPU;
+	CUDA_CALL(cudaMemcpyAsync(this->queryFVGPU, queryFV, sizeof(int)*this->cellNum, cudaMemcpyHostToDevice, stream));
+	//对于这个查询，调用gpu的kernel执行并行的pruning
+
+
+	//得到的结果加入到queue中（归并求和）
+
 }
 
 FVTable::FVTable()

@@ -72,5 +72,10 @@ typedef struct TaskInfoTableForSimilarity {
 	int candTrajID;
 }TaskInfoTableForSimilarity;
 
+typedef struct intPair{
+	int int_1;
+	int int_2;
+}intPair;
+
 int getIdxFromXY(int x, int y);
 

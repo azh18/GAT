@@ -52,7 +52,7 @@ int main()
 	{
 		printf("%d,%d\t", i, tradb[i].length);
 	}
-	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
+	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.025);
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	//delete[] tradb;
 	int count = 0;
@@ -94,7 +94,7 @@ int main()
 	//Similarity on CPU
 	int* simiResult = new int[10 * 100];
 	g->SimilarityQueryBatch(qTra, 100, simiResult,10);
-	for (int i = 0; i <= 19; i++) {
+	for (int i = 0; i <= 39; i++) {
 		cout << "Trajectory:" << i << endl;
 		for (int j = 0; j <= 9; j++) {
 			cout << simiResult[i * 10 + j] << "\t" << endl;
@@ -107,7 +107,7 @@ int main()
 	//Similarity on GPU
 	simiResult = new int[10 * 100];
 	g->SimilarityQueryBatchOnGPU(qTra, 100, simiResult, 10);
-	for (int i = 0; i <= 19; i++)
+	for (int i = 0; i <= 39; i++)
 	{
 		cout << "Trajectory:" << i << endl;
 		for (int j = 0; j <= 9; j++)
