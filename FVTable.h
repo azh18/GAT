@@ -29,7 +29,9 @@ public:
 	vector<map<int, int>> FreqVector; //每个map代表一个轨迹
 	int trajNum; //总共的轨迹的数量
 	int cellNum; //cell的个数
-	void *FVTableGPU, *FVinfoGPU,*queryFVGPU,*FVTableOffset;
+	void *FVTableGPU, *FVinfoGPU,*queryFVGPU,*FVTableOffset,*FDresultsGPU;
+	size_t pitch;
+	int nonZeroFVNum = 0;
 
 	int initFVTable(int trajNum, int cellNum);
 	int addPointToFVTable(int trajID, int pointNum, int cellID);

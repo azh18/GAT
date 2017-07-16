@@ -196,7 +196,7 @@ int Grid::addDatasetToGrid(Trajectory* db, int traNum)
 {
 	this->trajNum = traNum;
 	//生成frequency vector
-	this->freqVectors.initFVTable(traNum + 1, this->cellnum);
+	this->freqVectors.initFVTable(traNum, this->cellnum);
 	//注意，轨迹编号从1开始
 	this->cellBasedTrajectory.resize(traNum + 1); //扩大cellbasedtraj的规模，加轨迹的时候可以直接用
 	int pointCount = 0;
@@ -272,7 +272,7 @@ int Grid::addDatasetToGrid(Trajectory* db, int traNum)
 		free(tempCntForTraj);
 	}
 	// Transfer FV to GPU
-	
+	this->freqVectors.transferFVtoGPU();
 
 
 	////Delta Encoding的cell连续存储
@@ -832,7 +832,8 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	//为剪枝计算Frequency Distance
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{
-		this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
+		//this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
+		this->freqVectors.formPriorityQueueGPU(&queryQueue[qID], &freqVectors[qID]);
 	}
 	timer.stop();
 	cout << "Part2 time:" << timer.elapse() << endl;
