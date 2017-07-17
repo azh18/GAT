@@ -571,17 +571,93 @@ __device__ inline int findNeighborGPU(int cellNum, int cellID, int * neighborID)
 	return 0;
 }
 
-__device__ bool isPositive(short x)
+__device__ inline bool isPositive(short x)
 {
-	if (x >= 0)
-		return true;
-	else
-		return false;
+	return x >= 0;
 }
 
-__global__ void Calculate_FD(short* queryFVGPU, intPair* FVinfo, short* FVTableGPU, intPair* FVOffsetInTable, int checkNum, short* FDistance)
+__global__ void Calculate_FD_Column(short* queryFVGPU, intPair* FVinfo, intPair* FVTable, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance)
 {
-	
+	//第一阶段：并行减法
+	int blockID = blockIdx.x;
+	int threadID = threadIdx.x;
+	int threadIDGlobal = blockDim.x*blockID + threadID;
+	for (int i = 0; i < checkNum / MAXTHREAD;i++)
+	{
+		intPair taskInfo = FVinfo[startTrajIdx + i*MAXTHREAD + threadID];
+		int nextCnt;
+		if (i*MAXTHREAD + threadID + startTrajIdx == trajNumInDB - 1)
+			nextCnt = nonZeroFVNumInDB;
+		else
+			nextCnt = FVinfo[startTrajIdx + i*MAXTHREAD + threadID + 1].int_2;
+		int find = binary_search_intPair(FVTable, taskInfo.int_2, (nextCnt - 1), blockID);
+		queryFVGPU[checkNum*blockID + i*MAXTHREAD + threadID] -= find;
+	}
+	__syncthreads();
+
+	//第二阶段：查找相邻，做减法
+	//这个阶段改为每个thread处理一个FD
+	int neighborsID[8];
+	for (int cell = 0; cell <= cellNum - 1; cell++)
+	{
+		//只需要一部分线程就行了
+		if (threadIDGlobal >= checkNum)
+			break;
+		if (queryFVGPU[checkNum*cell + threadIDGlobal] != 0)
+		{
+			findNeighborGPU(cellNum, cell, neighborsID);
+			//for (int i = 0; i <= 7; i++)
+			//	neighborsID[i] = 11;
+			for (int i = 0; i <= 7; i++)
+			{
+				if (isPositive(queryFVGPU[checkNum*cell + threadIDGlobal]) != isPositive(queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal])) {
+					if (fabsf(queryFVGPU[checkNum*cell + threadIDGlobal]) > fabsf(queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal]))
+					{
+						queryFVGPU[checkNum*cell + threadIDGlobal] = queryFVGPU[checkNum*cell + threadIDGlobal] + queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal];
+						queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] = 0;
+					}
+					else
+					{
+						queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] = queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] + queryFVGPU[checkNum*cell + threadIDGlobal];
+						queryFVGPU[checkNum*cell + threadIDGlobal] = 0;
+						break;
+					}
+				}
+			}
+		}
+	}
+	__syncthreads();
+	//第三阶段：统计正负个数
+	//依然是每个block负责一个FD的计算
+	if (blockID >= checkNum)
+		return;
+	__shared__ int tempsumPosi[MAXTHREAD], tempsumNega[MAXTHREAD];
+	tempsumPosi[threadID] = 0;
+	tempsumNega[threadID] = 0;
+	for (int i = 0; i <= cellNum - 1; i += MAXTHREAD)
+	{
+		tempsumPosi[threadID] += (isPositive(queryFVGPU[(threadID + i)*checkNum +blockID])*queryFVGPU[(threadID + i)*checkNum + blockID]);
+		tempsumNega[threadID] += (-(!isPositive(queryFVGPU[(threadID + i)*checkNum + blockID]))*queryFVGPU[(threadID + i)*checkNum + blockID]);
+	}
+	__shared__ int sizeOfTempSum;
+	if (threadID == 0)
+		sizeOfTempSum = MAXTHREAD;
+	__syncthreads();
+	while ((sizeOfTempSum>1))
+	{
+		if (threadID <= (sizeOfTempSum >> 1) - 1)
+		{
+			tempsumPosi[threadID] = tempsumPosi[threadID] + tempsumPosi[threadID + (sizeOfTempSum >> 1)];
+			tempsumNega[threadID] = tempsumNega[threadID] + tempsumNega[threadID + (sizeOfTempSum >> 1)];
+		}
+		__syncthreads();
+		if (threadID == 0)
+			sizeOfTempSum = (sizeOfTempSum >> 1);
+		__syncthreads();
+	}
+	if (threadID == 0)
+		FDistance[blockID] = (tempsumPosi[0] > tempsumNega[0]) ? tempsumPosi[0] : tempsumNega[0];
+
 }
 
 //每个block负责一个FD的计算
@@ -605,7 +681,7 @@ __global__ void Calculate_FD_NonColumn(short* queryFVGPU, intPair* FVinfo, intPa
 	for (int i = 0; i <= (cellNum-1);i+=MAXTHREAD)
 	{
 		int find = binary_search_intPair(FVTable, taskInfo.int_2, (nextCnt - 1), (i + threadID));
-		//int find = 4;
+		//int find = 1;
 		//int k = cellNum*blockID + (i + threadID);
 		//queryFVGPU[cellNum*blockID + (i + threadID)] = 2;
 		queryFVGPU[cellNum*blockID + (i + threadID)] = queryFVGPU[cellNum*blockID + (i + threadID)] - find;
@@ -641,6 +717,7 @@ __global__ void Calculate_FD_NonColumn(short* queryFVGPU, intPair* FVinfo, intPa
 			}
 		}
 	}
+	__syncthreads();
 	//第三阶段：统计正负个数
 	//依然是每个block负责一个FD的计算
 	__shared__ int tempsumPosi[MAXTHREAD], tempsumNega[MAXTHREAD];
@@ -675,7 +752,8 @@ __global__ void Calculate_FD_NonColumn(short* queryFVGPU, intPair* FVinfo, intPa
 int Similarity_Pruning_Handler(short* queryFVGPU, intPair* FVinfo, intPair* FVTable, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance, cudaStream_t stream)
 {
 #ifdef NOT_COLUMN_ORIENTED
-	Calculate_FD_NonColumn <<<checkNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
+	//Calculate_FD_NonColumn <<<checkNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
+	Calculate_FD_Column <<<cellNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
 #else
 
 #endif

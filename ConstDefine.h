@@ -12,9 +12,9 @@
 #define MAXPOINTINNODE 1000
 
 //在FVTable中，由于GPU显存限制，每次可以检查的FV的上限
-#define N_BATCH_QUERY 2000
+#define N_BATCH_QUERY 2048
 
-#define NOT_COLUMN_ORIENTED
+// #define NOT_COLUMN_ORIENTED
 
 #include <stdio.h>
 #include <string>

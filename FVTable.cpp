@@ -242,63 +242,30 @@ int FVTable::transferFVtoGPU()
 
 	CUDA_CALL(cudaMalloc((void**)&this->FVinfoGPU, 16 * 1024 * 1024));
 	CUDA_CALL(cudaMalloc((void**)&this->FVTableOffset, 256 * 1024 * 1024));
-	//列式存储，容量和之前offset相同
 	CUDA_CALL(cudaMalloc((void**)&this->FVTableGPU, 256 * 1024 * 1024));
-	//列式存储，这个大小可以通过控制每次并行的轨迹数目来控制
-	CUDA_CALL(cudaMallocPitch((void**)&this->queryFVGPU, &this->pitch, N_BATCH_QUERY*sizeof(short), this->cellNum));
-	vector<map<int, short>> FVTable;
-	FVTable.resize(this->cellNum+1);
-	intPair* FVTableOffsetCPU = new intPair[this->cellNum*30000];
-	vector<map<int, int>> FVTableOffsetMap;
-	FVTableOffsetMap.resize(this->trajNum);
-
-	intPair* FVInfoCPU = new intPair[this->trajNum];
+	CUDA_CALL(cudaMalloc((void**)&this->queryFVGPU, this->cellNum*sizeof(short)*N_BATCH_QUERY));
+	CUDA_CALL(cudaMalloc((void**)&this->FDresultsGPU, N_BATCH_QUERY * sizeof(short)));
+	intPair* FVinfoPtr = (intPair*)this->FVinfoGPU;
+	intPair* FVPtr = (intPair*)this->FVTableGPU;
 	int cnt = 0;
 	for (int i = 1; i <= this->trajNum; i++) {
 		map<int, int>::iterator iter;
-		FVInfoCPU[i].int_1 = i;
-		FVInfoCPU[i].int_2 = cnt;
+		intPair tempInfoPair;
+		tempInfoPair.int_1 = i;
+		tempInfoPair.int_2 = cnt;
+		CUDA_CALL(cudaMemcpyAsync(FVinfoPtr, &tempInfoPair, sizeof(intPair), cudaMemcpyHostToDevice, stream));
+		FVinfoPtr++;
 		for (iter = this->FreqVector[i].begin(); iter != this->FreqVector[i].end(); iter++)
-		{
-			int cellIdx = iter->first;
-			FVTable[cellIdx][i] = iter->second;
-			FVTableOffsetMap[i][iter->first] = 0;
-			cnt++;
-		}
-	}
-
-	short *FVPtr = (short*)this->FVTableGPU;
-	intPair *FVinfoPtr = (intPair*)this->FVinfoGPU;
-
-	CUDA_CALL(cudaMemcpyAsync(FVinfoPtr, &FVInfoCPU, sizeof(intPair)*(this->trajNum+1), cudaMemcpyHostToDevice, stream));
-
-	cnt = 0;
-	for (int cell = 0; cell <= this->cellNum - 1;cell++)
-	{
-		map<int, short>::iterator iter;
-		for (iter = FVTable[cell].begin(); iter != FVTable[cell].end();iter++)
-		{
-			CUDA_CALL(cudaMemcpyAsync(FVPtr, &iter->second, sizeof(short), cudaMemcpyHostToDevice, stream));
-			//*FVPtr = iter->second;
-			FVTableOffsetMap[iter->first][cell] = cnt; //cnt实际上是从FVTable一开始算的offset
-			cnt++;
-			FVPtr++;
-		}
-	}
-	this->nonZeroFVNum = cnt;
-	intPair *FVTableOffsetG = (intPair*)this->FVTableOffset;
-	for (int i = 1; i <= this->trajNum - 1; i++) {
-		map<int, int>::iterator iter;
-		for (iter = FVTableOffsetMap[i].begin(); iter != FVTableOffsetMap[i].end();iter++)
 		{
 			intPair tempPair;
 			tempPair.int_1 = iter->first;
 			tempPair.int_2 = iter->second;
-			CUDA_CALL(cudaMemcpyAsync(FVTableOffsetG, &tempPair, sizeof(intPair), cudaMemcpyHostToDevice, stream));
-			FVTableOffsetG++;
+			CUDA_CALL(cudaMemcpyAsync(FVPtr, &tempPair, sizeof(intPair), cudaMemcpyHostToDevice, stream));
+			FVPtr++;
+			cnt++;
 		}
 	}
-
+	this->nonZeroFVNum = cnt;
 
 #endif
 
@@ -336,7 +303,7 @@ int FVTable::formPriorityQueueGPU(priority_queue<FDwithID, vector<FDwithID>, cmp
 		for (int item = i; item < i + taskNum; item++) {
 			FDwithID fd;
 			fd.traID = item;
-			fd.FD = resultsTemp[item-1];
+			fd.FD = resultsTemp[item-i-1];
 			queue->push(fd);
 		}
 		delete[] resultsTemp;
