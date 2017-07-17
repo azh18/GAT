@@ -23,4 +23,6 @@ int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTabl
 
 int EDRDistance_Batch_Handler(int queryTaskNum, TaskInfoTableForSimilarity* taskInfoTable, SPoint *queryTra, int* queryTraOffset, SPoint** candidateTraOffsets, int* queryLength, int *candidateLength, int *result, cudaStream_t *stream);
 
+int Similarity_Pruning_Handler(short* queryFVGPU, intPair* FVinfo, intPair* FVTable, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance, cudaStream_t stream);
+
 //__global__ void testSharedMemory();

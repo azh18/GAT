@@ -199,6 +199,115 @@ VLLT PreProcess::getTraInfoFromString(string s)
     return vllt;
 }
 
+bool PreProcess::writeTraDataToFile(string outFileName)
+{
+	FILE* fd = fopen(outFileName.c_str(), "w+");
+	fprintf(fd, "%d\n", this->maxTid);
+	fprintf(fd, "%f,%f,%f,%f\n", this->xmin, this->ymin, this->xmax, this->ymax);
+	for(int tid = 1; tid <= maxTid; tid++)
+	{
+		fprintf(fd, "%d;", tradb[tid].length);
+	}
+	fprintf(fd, "\n");
+	for (int tid = 1; tid <= maxTid;tid ++)
+	{
+		for (int idx = 0; idx <= tradb[tid].length - 1;idx++)
+		{
+			fprintf(fd, "%f,%f,%d,%d;", tradb[tid].points[idx].lat, tradb[tid].points[idx].lon, tradb[tid].points[idx].tid, tradb[tid].points[idx].time);
+		}
+		fprintf(fd, "\n");
+	}
+	fclose(fd);
+	return true;
+}
+
+bool PreProcess::readTraFromFormatedFile(string outFileName)
+{
+	fin.open(outFileName, ios_base::in);
+	string buffer;
+	buffer.assign(istreambuf_iterator<char>(fin), istreambuf_iterator<char>());
+	stringstream bufferstream;
+	bufferstream.str(buffer);
+	string linestr;
+	//MyTimer timer;
+	//tradb = (Trajectory*)malloc(sizeof(Trajectory) * 100000);
+	int cnt = 0;
+	char* nextStart = NULL;
+	while (getline(bufferstream, linestr))
+	{
+		string s = linestr;
+		if(cnt==0)
+		{
+			this->maxTid = std::atoi(s.c_str());
+		}
+		else if(cnt==1)
+		{
+			const char* str_c = s.c_str();
+			char* thisLineStr = (char*)malloc(s.length());
+			memcpy(thisLineStr, str_c, s.length());
+			char* num = strtok(thisLineStr, ",");
+			this->xmin = std::atof(num);
+			num = strtok(NULL, ",");
+			this->ymin = std::atof(num);
+			num = strtok(NULL, ",");
+			this->xmax = std::atof(num);
+			num = strtok(NULL, ",");
+			this->ymax = std::atof(num);
+		}
+		else if(cnt ==2) 
+		{
+			const char* str_c = s.c_str();
+			char* thisLineStr = (char*)malloc(s.length());
+			memcpy(thisLineStr, str_c, s.length());
+			char* num = strtok(thisLineStr, ";");
+			tradb[0].length = 0;
+			tradb[1].length = std::atoi(num);
+			for (int i = 2; i <= this->maxTid;i++)
+			{
+				num = strtok(NULL, ";");
+				tradb[i].length = std::atoi(num);
+			}
+		}
+		else
+		{
+			// ±àºÅÎªcnt - 2 µÄ¹ì¼£
+			tradb[cnt - 2].tid = cnt - 2;
+			const char* str_c = s.c_str();
+			char* thisLineStr = (char*)malloc(s.length());
+			memcpy(thisLineStr, str_c, s.length());
+			if (tradb[cnt - 2].length != 0) {
+				nextStart = strchr(thisLineStr, ';');
+				char* nums = strtok(thisLineStr, ";");
+				char* num = strtok(nums, ",");
+				tradb[cnt - 2].points[0].lat = std::atof(num);
+				num = strtok(NULL, ",");
+				tradb[cnt - 2].points[0].lon = std::atof(num);
+				num = strtok(NULL, ",");
+				tradb[cnt - 2].points[0].tid = std::atoi(num);
+				num = strtok(NULL, ",");
+				tradb[cnt - 2].points[0].time = std::atoi(num);
+				
+				for (int idx = 1; idx <= tradb[cnt - 2].length - 1;idx++)
+				{
+					nums = nextStart + 1;
+					nextStart = strchr(nums, ';');
+					num = strtok(nums, ",");
+					tradb[cnt - 2].points[idx].lat = std::atof(num);
+					num = strtok(NULL, ",");
+					tradb[cnt - 2].points[idx].lon = std::atof(num);
+					num = strtok(NULL, ",");
+					tradb[cnt - 2].points[idx].tid = std::atoi(num);
+					num = strtok(NULL, ";");
+					tradb[cnt - 2].points[idx].time = std::atoi(num);
+				}
+
+			}
+		}
+		cnt++;
+	}
+	return false;
+}
+
 PreProcess::~PreProcess()
 {
     //dtor

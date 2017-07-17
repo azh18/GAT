@@ -30,6 +30,8 @@ class PreProcess
 		bool validPoint(float lon, float lat);
         virtual ~PreProcess();
         VLLT getTraInfoFromString(string s);
+		bool writeTraDataToFile(string outFileName);
+		bool readTraFromFormatedFile(string outFileName);
 		float xmin, xmax, ymin, ymax;
 
 

@@ -78,6 +78,7 @@ public:
 	int stateTableLength;
 	int nodeAddrTableLength;
 	FVTable freqVectors;
+
 	
 	
 

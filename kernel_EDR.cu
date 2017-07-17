@@ -10,6 +10,7 @@
 #include "ConstDefine.h"
 #include "cudaKernel.h"
 #include <assert.h>
+#include <stdlib.h>
 #include"device_functions.h"
 #include "WinTimer.h"
 
@@ -106,7 +107,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra,int candid
 				else if (state_left < state_up)
 					myState = state_left;
 				else
-					myState = state_ismatch;
+					myState = state_up;
 				//去除if的表达方式，是否可以提升性能？
 				//myState = (state_ismatch < state_up) * state_ismatch + (state_left < state_up) * state_up + (state_left >= state_up) * state_left;
 				
@@ -130,7 +131,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra,int candid
 				else if (state_left < state_up)
 					myState = state_left;
 				else
-					myState = state_ismatch;
+					myState = state_up;
 			}
 		}
 		else
@@ -152,7 +153,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra,int candid
 				else if (state_left < state_up)
 					myState = state_left;
 				else
-					myState = state_ismatch;
+					myState = state_up;
 			}
 		}
 		//写myState到share内存,ckecked
@@ -259,7 +260,7 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	//if (lenT > queryLength)
 	//	iterNum = lenT;
 	const int iterNum = thisQueryLength + lenT - 1;
-	__shared__ int state[2][MAXLENGTH]; //用于存储前两次的结果（占用8KB）
+	__shared__ int state[2][MAXLENGTH+1]; //用于存储前两次的结果（占用8KB）
 	state[0][0] = 0;
 	state[1][0] = 1;
 	state[1][1] = 1;
@@ -267,26 +268,28 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	//首先把轨迹存在共享内存里
 	//这里面临着share memory是否够用的问题，书上写的是64KB，然而K80似乎有512KB
 	//如果是64KB的话，每条轨迹最长1024个点（两个轨迹共占用24KB）
-	__shared__ SPoint queryTraS[MAXLENGTH];
-	__shared__ SPoint traData[MAXLENGTH];
+	//__shared__ SPoint queryTraS[MAXLENGTH];
+	//__shared__ SPoint traData[MAXLENGTH];
 
-	for (int i = 0; i <= lenT - 1;i+=MAXTHREAD)
-	{
-		if(threadID+i<lenT)
-		{
-			traData[threadID + i] = SPoint(candidateTraOffsets[blockID][threadID + i]);
-		}
-	}
+
+	//for (int i = 0; i <= lenT - 1;i+=MAXTHREAD)
+	//{
+	//	if(threadID+i<lenT)
+	//	{
+	//		traData[threadID + i] = SPoint(candidateTraOffsets[blockID][threadID + i]);
+	//	}
+	//}
 
 	SPoint* queryTraBaseAddr = queryTra + queryTraOffset[thisQueryID];
-	for (int i = 0; i <= thisQueryLength - 1;i+=MAXTHREAD)
-	{
-		if(threadID+i<thisQueryLength)
-		{
-			queryTraS[threadID + i] = *(queryTraBaseAddr + threadID + i);
-		}
-	}
-
+	//for (int i = 0; i <= thisQueryLength - 1;i+=MAXTHREAD)
+	//{
+	//	if(threadID+i<thisQueryLength)
+	//	{
+	//		queryTraS[threadID + i] = *(queryTraBaseAddr + threadID + i);
+	//	}
+	//}
+	SPoint *queryTraS = queryTraBaseAddr;
+	SPoint *traData = candidateTraOffsets[blockID];
 	const SPoint *tra1, *tra2; //保证tra1比tra2短
 	int len1, len2;
 	if (lenT >= thisQueryLength) {
@@ -322,14 +325,18 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 					int state_ismatch = state[0][nodeID] + subcost;
 					int state_up = state[1][nodeID] + 1;
 					int state_left = state[1][nodeID + 1] + 1;
-					if (state_ismatch < state_up)
-						myState[nodeID/MAXTHREAD] = state_ismatch;
-					else if (state_left < state_up)
-						myState[nodeID / MAXTHREAD] = state_left;
-					else
-						myState[nodeID / MAXTHREAD] = state_ismatch;
+					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
+					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
 					//去除if的表达方式，是否可以提升性能？
-					//myState = (state_ismatch < state_up) * state_ismatch + (state_left < state_up) * state_up + (state_left >= state_up) * state_left;
+					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
+					//if ((state_ismatch < state_up) && (state_ismatch < state_left))
+					//	myState[nodeID/MAXTHREAD] = state_ismatch;
+					//else if ((state_left < state_up) && ((state_left < state_ismatch)))
+					//	myState[nodeID / MAXTHREAD] = state_left;
+					//else
+					//	myState[nodeID / MAXTHREAD] = state_up;
+					////去除if的表达方式，是否可以提升性能？
+					//myState[nodeID / MAXTHREAD] = (state_ismatch < state_up) && (state_ismatch < state_left) * state_ismatch + ((state_left < state_up) && ((state_left < state_ismatch))) * state_left + !(((state_ismatch < state_up) && (state_ismatch < state_left))||(((state_left < state_up) && ((state_left < state_ismatch))))) * state_up;
 				}
 			}
 		}
@@ -348,12 +355,16 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 					int state_ismatch = state[0][nodeID + 1] + subcost;
 					int state_up = state[1][nodeID] + 1;
 					int state_left = state[1][nodeID + 1] + 1;
-					if (state_ismatch < state_up)
-						myState[nodeID / MAXTHREAD] = state_ismatch;
-					else if (state_left < state_up)
-						myState[nodeID / MAXTHREAD] = state_left;
-					else
-						myState[nodeID / MAXTHREAD] = state_ismatch;
+					//if (state_ismatch < state_up)
+					//	myState[nodeID / MAXTHREAD] = state_ismatch;
+					//else if (state_left < state_up)
+					//	myState[nodeID / MAXTHREAD] = state_left;
+					//else
+					//	myState[nodeID / MAXTHREAD] = state_up;
+					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
+					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
+					//去除if的表达方式，是否可以提升性能？
+					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
 				}
 			}
 		}
@@ -373,12 +384,16 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 					int state_ismatch = state[0][nodeID] + subcost;
 					int state_up = state[1][nodeID] + 1;
 					int state_left = state[1][nodeID + 1] + 1;
-					if (state_ismatch < state_up)
-						myState[nodeID / MAXTHREAD] = state_ismatch;
-					else if (state_left < state_up)
-						myState[nodeID / MAXTHREAD] = state_left;
-					else
-						myState[nodeID / MAXTHREAD] = state_ismatch;
+					//if (state_ismatch < state_up)
+					//	myState[nodeID / MAXTHREAD] = state_ismatch;
+					//else if (state_left < state_up)
+					//	myState[nodeID / MAXTHREAD] = state_left;
+					//else
+					//	myState[nodeID / MAXTHREAD] = state_up;
+					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
+					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
+					//去除if的表达方式，是否可以提升性能？
+					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
 				}
 			}
 		}
@@ -480,6 +495,268 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 int EDRDistance_Batch_Handler(int queryTaskNum, TaskInfoTableForSimilarity* taskInfoTable, SPoint *queryTra, int* queryTraOffset, SPoint** candidateTraOffsets, int* queryLength, int *candidateLength, int *result, cudaStream_t *stream)
 {
 	EDRDistance_Batch <<<queryTaskNum, MAXTHREAD,0 , *stream >>>(queryTaskNum, taskInfoTable, queryTra, queryTraOffset, candidateTraOffsets, queryLength, candidateLength, result);
+	return 0;
+}
+
+__device__ inline int binary_search_intPair(intPair* temp, int left,int right,int val)
+{
+	int mid = (left + right) / 2;
+	while(left<=right)
+	{
+		mid = (left + right) / 2;
+		if (temp[mid].int_1 == val)
+			return temp[mid].int_2;
+		else if (temp[mid].int_1 > val)
+		{
+			right = mid-1;
+		}
+		else
+			left = mid+1;
+	}
+	return 0;
+}
+
+__device__ inline int getIdxFromXYGPU(int x, int y)
+{
+	int lenx, leny;
+	if (x == 0)
+		lenx = 1;
+	else
+	{
+		lenx = int(log2f(x)) + 1;
+	}
+	if (y == 0)
+		leny = 1;
+	else
+		leny = int(log2f(y)) + 1;
+	int result = 0;
+	int xbit = 1, ybit = 1;
+	for (int i = 1; i <= 2 * max(lenx, leny); i++)
+	{
+		if ((i & 1) == 1) //奇数
+		{
+			result += (x >> (xbit - 1) & 1) * (1 << (i - 1));
+			xbit = xbit + 1;
+		}
+		else //偶数
+		{
+			result += (y >> (ybit - 1) & 1) * (1 << (i - 1));
+			ybit = ybit + 1;
+		}
+	}
+	return result;
+}
+
+__device__ inline int findNeighborGPU(int cellNum, int cellID, int * neighborID)
+{
+	int x = 0, y = 0;
+	for (int bit = 0; bit <= int(log2f(cellNum)) - 1; bit++) {
+		if (bit % 2 == 0) {
+			//奇数位
+			x += ((cellID >> bit)&(1))*(1 << (bit / 2));
+		}
+		else {
+			//偶数位
+			y += ((cellID >> bit)&(1))*(1 << (bit / 2));
+		}
+	}
+	int cnt = 0;
+	for (int xx = x - 1; xx <= x + 1; xx++) {
+		for (int yy = y - 1; yy <= y + 1; yy++) {
+			if ((xx != x) || (yy != y))
+				neighborID[cnt++] = getIdxFromXYGPU(xx, yy);
+			//printf("%d\t", cnt);
+		}
+	}
+	return 0;
+}
+
+__device__ inline bool isPositive(short x)
+{
+	return x >= 0;
+}
+
+__global__ void Calculate_FD_Column(short* queryFVGPU, intPair* FVinfo, intPair* FVTable, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance)
+{
+	//第一阶段：并行减法
+	int blockID = blockIdx.x;
+	int threadID = threadIdx.x;
+	int threadIDGlobal = blockDim.x*blockID + threadID;
+	for (int i = 0; i < checkNum / MAXTHREAD;i++)
+	{
+		intPair taskInfo = FVinfo[startTrajIdx + i*MAXTHREAD + threadID];
+		int nextCnt;
+		if (i*MAXTHREAD + threadID + startTrajIdx == trajNumInDB - 1)
+			nextCnt = nonZeroFVNumInDB;
+		else
+			nextCnt = FVinfo[startTrajIdx + i*MAXTHREAD + threadID + 1].int_2;
+		int find = binary_search_intPair(FVTable, taskInfo.int_2, (nextCnt - 1), blockID);
+		queryFVGPU[checkNum*blockID + i*MAXTHREAD + threadID] -= find;
+	}
+	__syncthreads();
+
+	//第二阶段：查找相邻，做减法
+	//这个阶段改为每个thread处理一个FD
+	int neighborsID[8];
+	for (int cell = 0; cell <= cellNum - 1; cell++)
+	{
+		//只需要一部分线程就行了
+		if (threadIDGlobal >= checkNum)
+			break;
+		if (queryFVGPU[checkNum*cell + threadIDGlobal] != 0)
+		{
+			findNeighborGPU(cellNum, cell, neighborsID);
+			//for (int i = 0; i <= 7; i++)
+			//	neighborsID[i] = 11;
+			for (int i = 0; i <= 7; i++)
+			{
+				if (isPositive(queryFVGPU[checkNum*cell + threadIDGlobal]) != isPositive(queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal])) {
+					if (fabsf(queryFVGPU[checkNum*cell + threadIDGlobal]) > fabsf(queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal]))
+					{
+						queryFVGPU[checkNum*cell + threadIDGlobal] = queryFVGPU[checkNum*cell + threadIDGlobal] + queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal];
+						queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] = 0;
+					}
+					else
+					{
+						queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] = queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] + queryFVGPU[checkNum*cell + threadIDGlobal];
+						queryFVGPU[checkNum*cell + threadIDGlobal] = 0;
+						break;
+					}
+				}
+			}
+		}
+	}
+	__syncthreads();
+	//第三阶段：统计正负个数
+	//依然是每个block负责一个FD的计算
+	if (blockID >= checkNum)
+		return;
+	__shared__ int tempsumPosi[MAXTHREAD], tempsumNega[MAXTHREAD];
+	tempsumPosi[threadID] = 0;
+	tempsumNega[threadID] = 0;
+	for (int i = 0; i <= cellNum - 1; i += MAXTHREAD)
+	{
+		tempsumPosi[threadID] += (isPositive(queryFVGPU[(threadID + i)*checkNum +blockID])*queryFVGPU[(threadID + i)*checkNum + blockID]);
+		tempsumNega[threadID] += (-(!isPositive(queryFVGPU[(threadID + i)*checkNum + blockID]))*queryFVGPU[(threadID + i)*checkNum + blockID]);
+	}
+	__shared__ int sizeOfTempSum;
+	if (threadID == 0)
+		sizeOfTempSum = MAXTHREAD;
+	__syncthreads();
+	while ((sizeOfTempSum>1))
+	{
+		if (threadID <= (sizeOfTempSum >> 1) - 1)
+		{
+			tempsumPosi[threadID] = tempsumPosi[threadID] + tempsumPosi[threadID + (sizeOfTempSum >> 1)];
+			tempsumNega[threadID] = tempsumNega[threadID] + tempsumNega[threadID + (sizeOfTempSum >> 1)];
+		}
+		__syncthreads();
+		if (threadID == 0)
+			sizeOfTempSum = (sizeOfTempSum >> 1);
+		__syncthreads();
+	}
+	if (threadID == 0)
+		FDistance[blockID] = (tempsumPosi[0] > tempsumNega[0]) ? tempsumPosi[0] : tempsumNega[0];
+
+}
+
+//每个block负责一个FD的计算
+__global__ void Calculate_FD_NonColumn(short* queryFVGPU, intPair* FVinfo, intPair* FVTable, int startTrajIdx, int checkNum,int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance)
+{
+	//第一阶段：并行减法
+	int blockID = blockIdx.x;
+	int threadID = threadIdx.x;
+	int threadIDGlobal = blockDim.x*blockID + threadID;
+	if (blockID >= checkNum)
+		return;
+	__shared__ intPair taskInfo;
+	if(threadID == 0)
+		taskInfo = FVinfo[blockID + startTrajIdx];
+	int nextCnt;
+	if (blockID + startTrajIdx == trajNumInDB - 1)
+		nextCnt = nonZeroFVNumInDB;
+	else
+		nextCnt = FVinfo[blockID + startTrajIdx + 1].int_2;
+	__syncthreads();
+	for (int i = 0; i <= (cellNum-1);i+=MAXTHREAD)
+	{
+		int find = binary_search_intPair(FVTable, taskInfo.int_2, (nextCnt - 1), (i + threadID));
+		//int find = 1;
+		//int k = cellNum*blockID + (i + threadID);
+		//queryFVGPU[cellNum*blockID + (i + threadID)] = 2;
+		queryFVGPU[cellNum*blockID + (i + threadID)] = queryFVGPU[cellNum*blockID + (i + threadID)] - find;
+	}
+	//第二阶段：查找相邻，做减法
+	//这个阶段改为每个thread处理一个FD
+	int neighborsID[8];
+	for (int cell = 0; cell <= cellNum - 1;cell++)
+	{
+		//只需要一部分线程就行了
+		if (threadIDGlobal >= checkNum)
+			break;
+		if (queryFVGPU[cellNum*threadIDGlobal + cell] != 0)
+		{
+			findNeighborGPU(cellNum, cell, neighborsID);
+			//for (int i = 0; i <= 7; i++)
+			//	neighborsID[i] = 11;
+			for (int i = 0; i <= 7; i++)
+			{
+				if (isPositive(queryFVGPU[cellNum*threadIDGlobal + cell]) != isPositive(queryFVGPU[cellNum*threadIDGlobal + neighborsID[i]])){
+					if (fabsf(queryFVGPU[cellNum*threadIDGlobal + cell]) > fabsf(queryFVGPU[cellNum*threadIDGlobal + neighborsID[i]]))
+					{
+						queryFVGPU[cellNum*threadIDGlobal + cell] = queryFVGPU[cellNum*threadIDGlobal + cell] + queryFVGPU[cellNum*threadIDGlobal + neighborsID[i]];
+						queryFVGPU[cellNum*threadIDGlobal + neighborsID[i]] = 0;
+					}
+					else
+					{
+						queryFVGPU[cellNum*threadIDGlobal + neighborsID[i]] = queryFVGPU[cellNum*threadIDGlobal + neighborsID[i]] + queryFVGPU[cellNum*threadIDGlobal + cell];
+						queryFVGPU[cellNum*threadIDGlobal + cell] = 0;
+						break;
+					}
+				}
+			}
+		}
+	}
+	__syncthreads();
+	//第三阶段：统计正负个数
+	//依然是每个block负责一个FD的计算
+	__shared__ int tempsumPosi[MAXTHREAD], tempsumNega[MAXTHREAD];
+	tempsumPosi[threadID] = 0;
+	tempsumNega[threadID] = 0;
+	for (int i = 0; i <= cellNum - 1;i+=MAXTHREAD)
+	{
+		tempsumPosi[threadID] += (isPositive(queryFVGPU[blockID*cellNum + (i + threadID)])*queryFVGPU[blockID*cellNum + (i + threadID)]);
+		tempsumNega[threadID] += (-(!isPositive(queryFVGPU[blockID*cellNum + (i + threadID)]))*queryFVGPU[blockID*cellNum + (i + threadID)]);
+	}
+	__shared__ int sizeOfTempSum;
+	if(threadID==0)
+		sizeOfTempSum = MAXTHREAD;
+	__syncthreads();
+	while((sizeOfTempSum>1))
+	{
+		if (threadID <= (sizeOfTempSum >> 1)-1)
+		{
+			tempsumPosi[threadID] = tempsumPosi[threadID] + tempsumPosi[threadID + (sizeOfTempSum>>1)];
+			tempsumNega[threadID] = tempsumNega[threadID] + tempsumNega[threadID + (sizeOfTempSum>>1)];
+		}
+		__syncthreads();
+		if(threadID == 0)
+			sizeOfTempSum = (sizeOfTempSum >> 1);
+		__syncthreads();
+	}
+	if (threadID == 0)
+		FDistance[blockID] = (tempsumPosi[0] > tempsumNega[0]) ? tempsumPosi[0] : tempsumNega[0];
+
+}
+
+int Similarity_Pruning_Handler(short* queryFVGPU, intPair* FVinfo, intPair* FVTable, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance, cudaStream_t stream)
+{
+#ifdef NOT_COLUMN_ORIENTED
+	//Calculate_FD_NonColumn <<<checkNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
+	Calculate_FD_Column <<<cellNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
+#else
+
+#endif
 	return 0;
 }
 

@@ -5,11 +5,16 @@
 //MAXGAP是最大轨迹内时间间隔，如果超过这个间隔应该被视为两条轨迹
 #define MAXGAP 3600
 
-#define EPSILON 0.1
+#define EPSILON 0.001
 #define MAXTHREAD 256
 
 //每个node内包含的点的个数上限
 #define MAXPOINTINNODE 1000
+
+//在FVTable中，由于GPU显存限制，每次可以检查的FV的上限
+#define N_BATCH_QUERY 2048
+
+// #define NOT_COLUMN_ORIENTED
 
 #include <stdio.h>
 #include <string>
@@ -71,6 +76,11 @@ typedef struct TaskInfoTableForSimilarity {
 	int qID;
 	int candTrajID;
 }TaskInfoTableForSimilarity;
+
+typedef struct intPair{
+	int int_1;
+	int int_2;
+}intPair;
 
 int getIdxFromXY(int x, int y);
 
