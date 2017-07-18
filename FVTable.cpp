@@ -239,15 +239,16 @@ int FVTable::transferFVtoGPU()
 
 #else
 
-
-	CUDA_CALL(cudaMalloc((void**)&this->FVinfoGPU, 16 * 1024 * 1024));
-	CUDA_CALL(cudaMalloc((void**)&this->FVTableOffset, 256 * 1024 * 1024));
-	CUDA_CALL(cudaMalloc((void**)&this->FVTableGPU, 256 * 1024 * 1024));
-	CUDA_CALL(cudaMalloc((void**)&this->queryFVGPU, this->cellNum*sizeof(short)*N_BATCH_QUERY));
-	CUDA_CALL(cudaMalloc((void**)&this->FDresultsGPU, N_BATCH_QUERY * sizeof(short)));
+	
+	CUDA_CALL(cudaMalloc((void**)&this->FVinfoGPU, sizeof(intPair) * 80000));// 保存trajID、length、在FVTable中的offset
+	//CUDA_CALL(cudaMalloc((void**)&this->FVTableOffset, sizeof(intPair) * 80000 * 1024)); // 保存cellID、在FVTable中的offset
+	CUDA_CALL(cudaMalloc((void**)&this->FVTableGPU, sizeof(intPair) * 80000 * 1024)); // 保存在数据库中的（cellID,freq）数据
+	CUDA_CALL(cudaMalloc((void**)&this->FDresultsGPU, N_BATCH_QUERY * sizeof(int)));
 	intPair* FVinfoPtr = (intPair*)this->FVinfoGPU;
 	intPair* FVPtr = (intPair*)this->FVTableGPU;
+	//cnt记录在所有轨迹中，某个轨迹的编号范围
 	int cnt = 0;
+	int maxTrajCellLength = 0;
 	for (int i = 1; i <= this->trajNum; i++) {
 		map<int, int>::iterator iter;
 		intPair tempInfoPair;
@@ -264,7 +265,14 @@ int FVTable::transferFVtoGPU()
 			FVPtr++;
 			cnt++;
 		}
+		if (this->FreqVector[i].size() > maxTrajCellLength)
+			maxTrajCellLength = this->FreqVector[i].size();
 	}
+	this->SubbedArrayJump = 2*maxTrajCellLength;
+	CUDA_CALL(cudaMalloc((void**)&this->queryFVGPU, (maxTrajCellLength)*sizeof(intPair)));// 存储query轨迹的FV
+	CUDA_CALL(cudaMalloc((void**)&this->SubbedArrayGPU, sizeof(intPair) * (this->SubbedArrayJump) * N_BATCH_QUERY));// 预留给GPU用的用于计算的空间
+	//printf("%d", maxTrajCellLength);
+	CUDA_CALL(cudaMalloc((void**)&this->SubbedArrayOffsetGPU, sizeof(intPair) * N_BATCH_QUERY));// 预留给GPU用的用于计算的空间
 	this->nonZeroFVNum = cnt;
 
 #endif
@@ -310,23 +318,39 @@ int FVTable::formPriorityQueueGPU(priority_queue<FDwithID, vector<FDwithID>, cmp
 	}
 	free(queryFVCPU);
 #else
-	//传递Query的freqVector到GPU中
-	//构建N_BATCH_QUERY个FV，分别对应该次kernel的这么多个FD计算
-	short *queryFVCPU = (short*)malloc(sizeof(short)*this->cellNum*N_BATCH_QUERY);
-	
-	
-	for (map<int, int>::iterator iter = freqVectorQ->begin(); iter != freqVectorQ->end();iter++)
+	intPair *queryFVCPU = (intPair*)malloc(freqVectorQ->size());
+	int queryCellLength = 0;
+	for (map<int, int>::iterator iter = freqVectorQ->begin(); iter != freqVectorQ->end(); iter++)
 	{
-		for (int col = 0; col <= N_BATCH_QUERY - 1; col++)
-			queryFVCPU[col + iter->first] = iter->second;
+		queryFVCPU[queryCellLength].int_1 = iter->first;
+		queryFVCPU[queryCellLength].int_2 = iter->second;
+		queryCellLength++;
 	}
-	short* queryFVGPU = (short*)this->queryFVGPU;
-	CUDA_CALL(cudaMemcpy2DAsync(queryFVGPU, this->pitch, queryFVCPU, sizeof(short)*N_BATCH_QUERY, sizeof(short)*N_BATCH_QUERY, this->cellNum, cudaMemcpyHostToDevice, stream));
-	//对于这个查询，调用gpu的kernel执行并行的pruning (注意传入pitch)
+	intPair* queryFVGPU = (intPair*)this->queryFVGPU;
 
-
-
-	//得到的结果加入到queue中（归并求和）
+	int candidateTotalNum = this->trajNum;
+	for (int i = 1; i <= trajNum; i += N_BATCH_QUERY)
+	{
+		//一次计算taskNum个FD，由于GPU内存限制
+		int taskNum = N_BATCH_QUERY;
+		if (i + N_BATCH_QUERY > trajNum)
+			taskNum = trajNum - i + 1;
+		CUDA_CALL(cudaMemcpyAsync(queryFVGPU, queryFVCPU, sizeof(intPair)*queryCellLength, cudaMemcpyHostToDevice, stream));
+		//对于这个查询，调用gpu的kernel执行并行的pruning (注意传入pitch)
+		//这里的trajIdx从0开始,checkNum是指待检查的轨迹的条数（block数量）
+		Similarity_Pruning_Handler((intPair*)this->queryFVGPU, (intPair*)this->FVinfoGPU, (intPair*)this->FVTableGPU,(intPair*)this->SubbedArrayGPU, (intPair*)SubbedArrayOffsetGPU,this->SubbedArrayJump, queryCellLength, i - 1, taskNum, this->cellNum, this->trajNum, this->nonZeroFVNum, (short*)this->FDresultsGPU, stream);
+		short* resultsTemp = new short[taskNum];
+		CUDA_CALL(cudaMemcpyAsync(resultsTemp, (short*)this->FDresultsGPU, sizeof(short)*taskNum, cudaMemcpyDeviceToHost, stream));
+		//得到的结果加入到queue中（归并求和）
+		for (int item = i; item < i + taskNum; item++) {
+			FDwithID fd;
+			fd.traID = item;
+			fd.FD = resultsTemp[item - i - 1];
+			queue->push(fd);
+		}
+		delete[] resultsTemp;
+	}
+	free(queryFVCPU);
 
 #endif
 	
