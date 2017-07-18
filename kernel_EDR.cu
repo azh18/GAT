@@ -516,6 +516,43 @@ __device__ inline int binary_search_intPair(intPair* temp, int left,int right,in
 	return 0;
 }
 
+__device__ inline int binary_search_intPair_Neighbor(intPair* temp, int left, int right, int val)
+{
+	int mid = (left + right) / 2;
+	while (left <= right)
+	{
+		mid = (left + right) / 2;
+		if (temp[mid].int_1 == val)
+			return mid;
+		else if (temp[mid].int_1 > val)
+		{
+			right = mid - 1;
+		}
+		else
+			left = mid + 1;
+	}
+	return -1;
+}
+
+// -1为没找到
+__device__ inline int binary_search_int(int* temp, int left, int right, int val)
+{
+	int mid = (left + right) / 2;
+	while (left <= right)
+	{
+		mid = (left + right) / 2;
+		if (temp[mid] == val)
+			return mid;
+		else if (temp[mid] > val)
+		{
+			right = mid - 1;
+		}
+		else
+			left = mid + 1;
+	}
+	return -1;
+}
+
 __device__ inline int getIdxFromXYGPU(int x, int y)
 {
 	int lenx, leny;
@@ -576,50 +613,111 @@ __device__ inline bool isPositive(short x)
 	return x >= 0;
 }
 
-__global__ void Calculate_FD_Column(short* queryFVGPU, intPair* FVinfo, intPair* FVTable, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance)
+__global__ void Calculate_FD_Sparse(intPair* queryFVGPU, intPair* FVinfo, intPair* FVTable, intPair* SubbedArray, intPair* SubbedArrayOffset, int SubbedArrayJump, int queryCellLength, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance)
 {
 	//第一阶段：并行减法
+	const int MAX_QUERY_CELLNUMBER = 512;
 	int blockID = blockIdx.x;
 	int threadID = threadIdx.x;
 	int threadIDGlobal = blockDim.x*blockID + threadID;
-	for (int i = 0; i < checkNum / MAXTHREAD;i++)
+
+	__shared__ intPair queryCellTraj[MAX_QUERY_CELLNUMBER];
+	__shared__ intPair dbCellTraj[MAX_QUERY_CELLNUMBER];
+	//cellchecked记录在query中出现的cell编号，用于在反向减法的时候检查是不是已经减过了。以后可以在归并加中复用此变量。
+	__shared__ int cellChecked[MAX_QUERY_CELLNUMBER];
+	for (int i = 0; i <= queryCellLength - 1; i += MAXTHREAD) {
+		if (threadID+i < queryCellLength)
+		{
+			queryCellTraj[threadID + i] = queryFVGPU[threadID + i];
+		}
+	}
+	int dbTrajStartIdx = FVinfo[startTrajIdx + blockID].int_2;
+	int dbTrajEndIdx;
+	if (blockID + startTrajIdx == trajNumInDB - 1)
+		dbTrajEndIdx = nonZeroFVNumInDB - 1;
+	else
+		dbTrajEndIdx = FVinfo[startTrajIdx + blockID + 1].int_2 - 1;
+	
+	for (int i = 0; i <= dbTrajEndIdx - dbTrajStartIdx;i+=MAXTHREAD)
 	{
-		intPair taskInfo = FVinfo[startTrajIdx + i*MAXTHREAD + threadID];
-		int nextCnt;
-		if (i*MAXTHREAD + threadID + startTrajIdx == trajNumInDB - 1)
-			nextCnt = nonZeroFVNumInDB;
-		else
-			nextCnt = FVinfo[startTrajIdx + i*MAXTHREAD + threadID + 1].int_2;
-		int find = binary_search_intPair(FVTable, taskInfo.int_2, (nextCnt - 1), blockID);
-		queryFVGPU[checkNum*blockID + i*MAXTHREAD + threadID] -= find;
+		if (threadID + i <= dbTrajEndIdx - dbTrajStartIdx)
+			dbCellTraj[threadID + i] = FVTable[dbTrajStartIdx + threadID + i];
+	}
+	//1.1:用query减去db
+	for (int i = 0; i < queryCellLength; i += MAXTHREAD)
+	{
+		if (threadID + i < queryCellLength) {
+			int find = binary_search_intPair(dbCellTraj, 0, dbTrajEndIdx - dbTrajStartIdx, queryCellTraj[threadID + i].int_1);
+			cellChecked[threadID + i] = queryCellTraj[threadID + i].int_1;
+			SubbedArray[SubbedArrayJump * blockID + threadID + i].int_1 = queryCellTraj[threadID + i].int_1;
+			SubbedArray[SubbedArrayJump * blockID + threadID + i].int_2 = queryCellTraj[threadID + i].int_2 - find;
+		}
+		if (threadID == 0) {
+			SubbedArrayOffset[blockID].int_1 = queryCellLength - 1;
+			SubbedArrayOffset[blockID].int_2 = queryCellLength + dbTrajEndIdx - dbTrajStartIdx;
+		}
+	}
+	//1.2：用db减去query，注意加负号
+	for (int i = 0; i <= dbTrajEndIdx - dbTrajStartIdx;i+=MAXTHREAD)
+	{
+		if(threadID + i <= dbTrajEndIdx - dbTrajStartIdx)
+		{
+			intPair cellNo = dbCellTraj[threadID + i];
+			int find = binary_search_int(cellChecked, 0, queryCellLength - 1, cellNo.int_1);
+			if (find == -1)
+			{
+				SubbedArray[SubbedArrayJump * blockID + queryCellLength + threadID + i].int_1 = cellNo.int_1;
+				SubbedArray[SubbedArrayJump * blockID + queryCellLength + threadID + i].int_2 = -cellNo.int_2;
+			}
+			else
+				SubbedArray[SubbedArrayJump * blockID + queryCellLength + threadID + i].int_1 = -1;
+		}
 	}
 	__syncthreads();
-
 	//第二阶段：查找相邻，做减法
 	//这个阶段改为每个thread处理一个FD
-	int neighborsID[8];
-	for (int cell = 0; cell <= cellNum - 1; cell++)
-	{
-		//只需要一部分线程就行了
-		if (threadIDGlobal >= checkNum)
-			break;
-		if (queryFVGPU[checkNum*cell + threadIDGlobal] != 0)
+	//2.1：合并每个subbedArray
+	if (threadIDGlobal < checkNum) {
+		int startMergeIdx = SubbedArrayOffset[threadIDGlobal].int_1 + 1;
+		int endMergeIdx = SubbedArrayOffset[threadIDGlobal].int_2;
+		int frontPtr = startMergeIdx;
+		for (int i = startMergeIdx; i <= endMergeIdx;i++)
 		{
-			findNeighborGPU(cellNum, cell, neighborsID);
-			//for (int i = 0; i <= 7; i++)
-			//	neighborsID[i] = 11;
-			for (int i = 0; i <= 7; i++)
+			if(SubbedArray[SubbedArrayJump * threadIDGlobal + i].int_1 != -1)
 			{
-				if (isPositive(queryFVGPU[checkNum*cell + threadIDGlobal]) != isPositive(queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal])) {
-					if (fabsf(queryFVGPU[checkNum*cell + threadIDGlobal]) > fabsf(queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal]))
+				SubbedArray[SubbedArrayJump * threadIDGlobal + frontPtr] = SubbedArray[SubbedArrayJump * threadIDGlobal + i];
+				frontPtr++;
+			}
+		}
+		SubbedArrayOffset[threadIDGlobal].int_2 = frontPtr-1;
+	}
+	//2.2 查找相邻
+	int neighborsID[8];
+	//cell单纯指第几个元素
+	for (int cell = 0; cell <= SubbedArrayOffset[threadIDGlobal].int_2; cell++)
+	{
+		findNeighborGPU(cellNum, cell, neighborsID);
+		//for (int i = 0; i <= 7; i++)
+		//	neighborsID[i] = 11;
+		for (int i = 0; i <= 7; i++)
+		{
+			int find = binary_search_intPair_Neighbor(&SubbedArray[SubbedArrayJump * threadIDGlobal], 0, SubbedArrayOffset[threadIDGlobal].int_1, neighborsID[i]);
+			if(find == -1){
+				find = binary_search_intPair_Neighbor(&SubbedArray[SubbedArrayJump * threadIDGlobal], SubbedArrayOffset[threadIDGlobal].int_1 + 1, SubbedArrayOffset[threadIDGlobal].int_2, neighborsID[i]);
+			}
+			// 如果是-1，说明这个neighbor是0，不用处理
+			if(find != -1)
+			{
+				if (isPositive(SubbedArray[SubbedArrayJump * threadIDGlobal + cell].int_2) != isPositive(SubbedArray[SubbedArrayJump * threadIDGlobal + find].int_2))
+				{
+					if (fabsf(SubbedArray[SubbedArrayJump * threadIDGlobal + cell].int_2) > fabsf(SubbedArray[SubbedArrayJump * threadIDGlobal + find].int_2))
 					{
-						queryFVGPU[checkNum*cell + threadIDGlobal] = queryFVGPU[checkNum*cell + threadIDGlobal] + queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal];
-						queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] = 0;
+						SubbedArray[SubbedArrayJump * threadIDGlobal + cell].int_2 = SubbedArray[SubbedArrayJump * threadIDGlobal + cell].int_2 + SubbedArray[SubbedArrayJump * threadIDGlobal + find].int_2;
+						SubbedArray[SubbedArrayJump * threadIDGlobal + find].int_2 = 0;
 					}
-					else
-					{
-						queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] = queryFVGPU[checkNum*neighborsID[i] + threadIDGlobal] + queryFVGPU[checkNum*cell + threadIDGlobal];
-						queryFVGPU[checkNum*cell + threadIDGlobal] = 0;
+					else {
+						SubbedArray[SubbedArrayJump * threadIDGlobal + find].int_2 = SubbedArray[SubbedArrayJump * threadIDGlobal + find].int_2 + SubbedArray[SubbedArrayJump * threadIDGlobal + cell].int_2;
+						SubbedArray[SubbedArrayJump * threadIDGlobal + cell].int_2 = 0;
 						break;
 					}
 				}
@@ -631,13 +729,17 @@ __global__ void Calculate_FD_Column(short* queryFVGPU, intPair* FVinfo, intPair*
 	//依然是每个block负责一个FD的计算
 	if (blockID >= checkNum)
 		return;
-	__shared__ int tempsumPosi[MAXTHREAD], tempsumNega[MAXTHREAD];
+	int *tempsumPosi = (int*)queryCellTraj;
+	int *tempsumNega = (int*)dbCellTraj;
 	tempsumPosi[threadID] = 0;
 	tempsumNega[threadID] = 0;
-	for (int i = 0; i <= cellNum - 1; i += MAXTHREAD)
+	for (int i = 0; i <= SubbedArrayOffset[blockID].int_2; i += MAXTHREAD)
 	{
-		tempsumPosi[threadID] += (isPositive(queryFVGPU[(threadID + i)*checkNum +blockID])*queryFVGPU[(threadID + i)*checkNum + blockID]);
-		tempsumNega[threadID] += (-(!isPositive(queryFVGPU[(threadID + i)*checkNum + blockID]))*queryFVGPU[(threadID + i)*checkNum + blockID]);
+		if(i+threadID <= SubbedArrayOffset[blockID].int_2)
+		{
+			tempsumPosi[threadID] += (isPositive(SubbedArray[SubbedArrayJump * blockID + i + threadID].int_2)*SubbedArray[SubbedArrayJump * blockID + i + threadID].int_2);
+			tempsumNega[threadID] += (-(!isPositive(SubbedArray[SubbedArrayJump * blockID + i + threadID].int_2))*SubbedArray[SubbedArrayJump * blockID + i + threadID].int_2);
+		}
 	}
 	__shared__ int sizeOfTempSum;
 	if (threadID == 0)
@@ -657,7 +759,6 @@ __global__ void Calculate_FD_Column(short* queryFVGPU, intPair* FVinfo, intPair*
 	}
 	if (threadID == 0)
 		FDistance[blockID] = (tempsumPosi[0] > tempsumNega[0]) ? tempsumPosi[0] : tempsumNega[0];
-
 }
 
 //每个block负责一个FD的计算
@@ -749,13 +850,13 @@ __global__ void Calculate_FD_NonColumn(short* queryFVGPU, intPair* FVinfo, intPa
 
 }
 
-int Similarity_Pruning_Handler(short* queryFVGPU, intPair* FVinfo, intPair* FVTable, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance, cudaStream_t stream)
+//SubbedArrayJump是SubbedArray中每一行有多少个元素，供计算idx用
+int Similarity_Pruning_Handler(intPair* queryFVGPU, intPair* FVinfo, intPair* FVTable, intPair* SubbedArray, intPair* SubbedArrayOffset,int SubbedArrayJump, int queryCellLength, int startTrajIdx, int checkNum, int cellNum, int trajNumInDB, int nonZeroFVNumInDB, short* FDistance, cudaStream_t stream)
 {
 #ifdef NOT_COLUMN_ORIENTED
-	//Calculate_FD_NonColumn <<<checkNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
-	Calculate_FD_Column <<<cellNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
+	Calculate_FD_NonColumn <<<checkNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
 #else
-
+	Calculate_FD_Sparse <<<checkNum, MAXTHREAD, 0, stream >>>(queryFVGPU, FVinfo, FVTable, SubbedArray, SubbedArrayOffset, SubbedArrayJump, queryCellLength, startTrajIdx, checkNum, cellNum, trajNumInDB, nonZeroFVNumInDB, FDistance);
 #endif
 	return 0;
 }
