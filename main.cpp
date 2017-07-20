@@ -69,7 +69,7 @@ int main()
 	int RangeQueryResultSize = 0;
 	MBB mbbArray[1000];
 	int* resultSize = NULL;
-	for (int i = 0; i <= 1000; i++)
+	for (int i = 0; i <= 999; i++)
 		mbbArray[i] = MBB(121.1, 31.1, 121.3, 31.3);
 	MyTimer timer;
 	timer.start();
