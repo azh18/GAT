@@ -1,44 +1,86 @@
-######################################
+# Makefile example for compiling cuda and linking cuda to cpp:
+
+SOURCELOC = 
+
+UTILITYLOC =
+
+NEWMOD =
+
+PROGRAM = CUDAGTS
+
+INCDIR= .
 #
-######################################
-#source file
-#源文件，自动找所有.c和.cpp文件，并将目标定义为同名.o文件
-SOURCE  := $(wildcard *.c) $(wildcard *.cpp)
-OBJS    := $(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(SOURCE)))
-  
-#target you can change test to what you want
-#目标文件名，输入任意你想要的执行文件名
-TARGET  := TransformTrajectory
-  
-#compile and lib parameter
-#编译参数
-CC      := gcc
-LIBS    :=
-LDFLAGS :=
-DEFINES :=
-INCLUDE := -I .
-CFLAGS  := -g -Wall -O3 $(DEFINES) $(INCLUDE)
-CXXFLAGS:= $(CFLAGS) -DHAVE_CONFIG_H
-  
-  
-#i think you should do anything here
-#下面的基本上不需要做任何改动了
-.PHONY : everything objs clean veryclean rebuild
-  
-everything : $(TARGET)
-  
-all : $(TARGET)
-  
-objs : $(OBJS)
-  
-rebuild: veryclean everything
-                
-clean :
-    rm -fr *.so
-    rm -fr *.o
-    
-veryclean : clean
-    rm -fr $(TARGET)
-  
-$(TARGET) : $(OBJS)
-    $(CC) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LIBS)
+# Define the C compile flags
+CCFLAGS = -g -m64 -I /usr/local/cuda/include -I ./header -O2 -std=c++11
+CC = g++
+
+# Define the Cuda compile flags
+#
+CUDAFLAGS= --gpu-architecture=compute_35 --gpu-code=compute_35 -m64 -use_fast_math -I ./header -std=c++11 -lineinfo --use-local-env -ccbin "g++" -cudart static --cl-version 2015
+
+CUDACC= nvcc
+
+# Define Cuda objects
+
+#
+
+CUDA = kernel.o
+
+# Define the libraries
+
+SYSLIBS= -lc
+USRLIB  = -lcudart
+
+# Define all object files
+
+OBJECTS = \
+	CUDAGTS_CPP.o\
+	Cell.o\
+	DateTime.o\
+	FVTable.o\
+	Grid.o\
+	MBB.o\
+	PreProcess.o\
+	QueryResult.o\
+	SamplePoint.o\
+	Trajectory.o
+
+
+
+install: CUDAGTS
+
+
+# Define Task Function Program
+
+
+all: CUDAGTS
+
+
+# Define what Modtools is
+
+
+CUDAGTS: $(OBJECTS) $(CUDA)
+
+	$(CUDACC) $(CUDAFLAGS) -o CUDAGTS -L/usr/local/cuda/lib64 -lcuda $(OBJECTS) $(CUDA) $(USRLIB) $(SYSLIBS)
+
+# Modtools_Object codes
+
+
+CUDAGTS_CPP.o: main.cpp
+
+	$(CC) $(CCFLAGS) -c main.cpp -o CUDAGTS_CPP.o
+
+.cpp.o:
+
+	$(CC) $(CCFLAGS) -c $<
+
+
+CUDAINCDIR= /usr/local/cuda/include 
+
+kernel.o: kernel.cu
+
+	$(CUDACC) $(CUDAFLAGS) --compile -c kernel.cu -o kernel.o
+
+clean:
+	rm -rf *.o
+#  end
