@@ -12,7 +12,6 @@
 #include <assert.h>
 #include <stdlib.h>
 #include"device_functions.h"
-#include "WinTimer.h"
 
 #define CUDA_CALL(x) { const cudaError_t a = (x); if (a!= cudaSuccess) { printf("\nCUDA Error: %s(err_num=%d)\n", cudaGetErrorString(a), a); cudaDeviceReset(); assert(0);}}
 

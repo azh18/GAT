@@ -9,7 +9,6 @@
 #include <assert.h>
 #include <vector>
 #include <iostream>
-#include "WinTimer.h"
 #include "ConstDefine.h"
 
 
@@ -170,7 +169,7 @@ int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds,
 	int totalPointNumInCandidate = counter;
 
 
-	int* candidateCellsCuda = NULL, *rangeStartsCuda = NULL, *rangeEndsCuda = NULL, *resultOffsetCuda = NULL;
+	int *rangeStartsCuda = NULL, *rangeEndsCuda = NULL, *resultOffsetCuda = NULL;
 
 	CUDA_CALL(cudaMalloc((void**)&resultsGPU, sizeof(Point)*totalPointNumInCandidate));
 	//将range和cell信息写入gpu

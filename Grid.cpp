@@ -1,9 +1,12 @@
 #include "Grid.h"
-#include "WinTimer.h"
 
 extern Trajectory* tradb;
 extern void* baseAddrGPU;
+#ifdef WIN32
 MyTimer timer;
+#else
+
+#endif
 
 Grid::Grid()
 {
@@ -272,7 +275,7 @@ int Grid::addDatasetToGrid(Trajectory* db, int traNum)
 		free(tempCntForTraj);
 	}
 	// Transfer FV to GPU
-	this->freqVectors.transferFVtoGPU();
+	//this->freqVectors.transferFVtoGPU();
 
 
 	////Delta Encoding的cell连续存储
@@ -330,7 +333,7 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 	ResultTable->traid = -1; //table开头traid为-1 flag
 	ResultTable->next = NULL;
 	resultSetSize = (int*)malloc(sizeof(int) * rangeNum);
-	CPURangeQueryResult *newResult, *nowResult;
+	CPURangeQueryResult  *nowResult;
 	nowResult = ResultTable;
 	int totalLevel = int(log2(this->cellnum) / log2(4));
 	for (int i = 0; i <= rangeNum - 1; i++)
@@ -832,8 +835,8 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	//为剪枝计算Frequency Distance
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{
-		//this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
-		this->freqVectors.formPriorityQueueGPU(&queryQueue[qID], &freqVectors[qID]);
+		this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
+		//this->freqVectors.formPriorityQueueGPU(&queryQueue[qID], &freqVectors[qID]);
 	}
 	timer.stop();
 	cout << "Part2 time:" << timer.elapse() << endl;

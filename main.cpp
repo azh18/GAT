@@ -10,7 +10,7 @@
 #include <vector>
 #include "Grid.h"
 #include "cudaKernel.h"
-#include "WinTimer.h"
+
 
 using namespace std;
 
@@ -39,11 +39,11 @@ int main()
 	//CUDA_CALL(cudaSetDeviceFlags(cudaDeviceMapHost));
 
 	tradb = new Trajectory[MAX_TRAJ_SIZE];
-	PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
+	//PreProcess pp("data_SSmall_SH.txt", "dataout.txt");
 	//PreProcess pp("SH_0.txt", "dataout.txt");
 	//pp.writeTraDataToFile("SH_0_OUT.txt");
-	//PreProcess pp;
-	//pp.readTraFromFormatedFile("SH_0_OUT.txt");
+	PreProcess pp;
+	pp.readTraFromFormatedFile("SH_0_OUT.txt");
 
 	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
@@ -52,7 +52,7 @@ int main()
 	{
 		printf("%d,%d\t", i, tradb[i].length);
 	}
-	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.025);
+	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	//delete[] tradb;
 	int count = 0;

@@ -14,12 +14,18 @@
 //在FVTable中，由于GPU显存限制，每次可以检查的FV的上限
 #define N_BATCH_QUERY 2048
 
+
 // #define NOT_COLUMN_ORIENTED
 
 #include <stdio.h>
 #include <string>
 #include <math.h>
 #include "QueryResult.h"
+#ifdef WIN32
+	#include "WinTimer.h"
+#else
+	#include <sys/time.h>
+#endif
 
 //test:以cell为基础存储
 #define _CELL_BASED_STORAGE
@@ -30,22 +36,22 @@
 typedef struct Point {
 	float x;
 	float y;
-	uint32_t time;
-	uint32_t tID;
+	int time;
+	int tID;
 }Point;
 
 //4+4+4=12bytes
 typedef struct SPoint {
 	float x;
 	float y;
-	uint32_t tID;
+	int tID;
 }SPoint;
 
 //2+2+4=8bytes
 typedef struct DPoint {
 	short x;
 	short y;
-	uint32_t tID;
+	int tID;
 }DPoint;
 
 typedef struct cellBasedTraj {
@@ -81,6 +87,38 @@ typedef struct intPair{
 	int int_1;
 	int int_2;
 }intPair;
+
+#ifdef WIN32
+#else
+
+
+class MyTimer
+{
+	MyTimer(){
+	};
+	double iStart;
+	double iEnd;
+
+	double cpuSecond() {
+		struct timeval tp;
+		gettimeofday(&tp, NULL);
+		return ((double)tp.tv_sec + (double)tp.tv_usec*1.e-6);
+	}
+
+	inline void start()
+	{
+		iStart = cpuSecond();
+	}
+	inline void stop()
+	{
+		iEnd = cpuSecond();
+	}
+	inline float elapse()
+	{
+		return iEnd - iStart;
+	}
+};
+#endif
 
 int getIdxFromXY(int x, int y);
 

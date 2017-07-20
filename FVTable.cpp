@@ -1,6 +1,5 @@
 #include "FVTable.h"
 #include <queue>
-#include "WinTimer.h"
 #include "cudaKernel.h"
 
 
