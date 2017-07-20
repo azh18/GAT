@@ -13,7 +13,8 @@
 
 //在FVTable中，由于GPU显存限制，每次可以检查的FV的上限
 #define N_BATCH_QUERY 2048
-
+#define TRUE 1
+#define FALSE 0
 
 // #define NOT_COLUMN_ORIENTED
 
@@ -21,6 +22,8 @@
 #include <string>
 #include <math.h>
 #include "QueryResult.h"
+#include <cstring>
+
 #ifdef WIN32
 	#include "WinTimer.h"
 #else
@@ -94,6 +97,7 @@ typedef struct intPair{
 
 class MyTimer
 {
+public:
 	MyTimer(){
 	};
 	double iStart;
@@ -119,6 +123,10 @@ class MyTimer
 	}
 };
 #endif
+
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
 
 int getIdxFromXY(int x, int y);
 

@@ -3,8 +3,8 @@
 #include "device_launch_parameters.h"
 
 #include "cudaKernel.h"
-#include "thrust\device_ptr.h"
-#include "thrust\remove.h"
+#include "thrust/device_ptr.h"
+#include "thrust/remove.h"
 #include <stdio.h>
 #include <assert.h>
 #include <vector>
