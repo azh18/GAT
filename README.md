@@ -1,5 +1,4 @@
 # GTS
---------
 A GPU-accelerated in-memory trajectory storage system, supporting two basic kinds of queries: range query and top-k similarity query.
 
 ## Compile ##
