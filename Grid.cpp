@@ -571,7 +571,7 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 		numElemInCalculatedQueue[i] = 0;
 
 	//准备好之后，开始做查询
-	const int k = 10;
+	const int k = 50;
 	timer.start();
 	// check if the FD is lowerbound for all traj
 
@@ -798,9 +798,9 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 //所有（批量）query级别上的GPU并行
 //备用思路：分别处理每一条查询轨迹，用不同stream并行
 {
-	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 768 * 1024 * 1024));
 	void* whileAddrGPU = NULL;
-	CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU), 16 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU), 256 * 1024 * 1024));
 	void* whileAddrGPUBase = whileAddrGPU;
 	//当前分配到的地址
 	void* nowAddrGPU = NULL;
@@ -850,7 +850,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		numElemInCalculatedQueue[i] = 0;
 
 	//准备好之后，开始做查询
-	const int k = 10;
+	const int k = 50;
 	int totalQueryTrajLength = 0;
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{
@@ -867,12 +867,15 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	SPoint* queryTraGPUBase = queryTraGPU;
 	int* queryTraLength = new int[queryTrajNum];
 	allQueryTraOffset[0] = 0;
+	printf("queryTrajNum:%d", queryTrajNum);
+	printf("totalQueryTrajLength:%d", totalQueryTrajLength);
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{
 		for (int i = 0; i <= qTra[qID].length - 1; i++)
 		{
 			queryTra[i].x = qTra[qID].points[i].lon;
 			queryTra[i].y = qTra[qID].points[i].lat;
+			queryTra[i].tID = qTra[qID].tid;
 		}
 		CUDA_CALL(cudaMemcpyAsync(queryTraGPU, queryTra, sizeof(SPoint)*qTra[qID].length, cudaMemcpyHostToDevice, defaultStream));
 		queryTraLength[qID] = qTra[qID].length;
@@ -926,9 +929,12 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	
 	while (!isAllFinished)
 	{
-		/*tt.start();*/
+		//tt.start();
+		//还有待计算的候选轨迹的总数目，相当于任务数目
 		int validCandTrajNum = 0;
+		//目前还没有计算完成的查询轨迹的数目
 		int validQueryTraNum = queryTrajNum;
+		// 在本轮计算内的第几个轨迹
 		int validQueryIdx = 0;
 		// 线性地址
 		SPoint* tempPtr = candidateTra;
@@ -1003,7 +1009,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 							// 保存轨迹对应的addr
 							candidateTrajOffsetTable[k * validQueryIdx + i].objectId = CandTrajID;
 							candidateTrajOffsetTable[k * validQueryIdx + i].addr = baseAddrGPU;
-							candidateOffsets[k * validQueryIdx + i] = candidateTraGPU;
+							candidateOffsets[k * validQueryIdx + i] = (SPoint*)baseAddrGPU;
 						}
 					}
 					validQueryIdx++;

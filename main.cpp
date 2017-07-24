@@ -88,16 +88,21 @@ int main()
 	Trajectory* qTra = new Trajectory[100];
 	for (int i = 0; i <= 99; i++)
 	{
-		qTra[i] = tradb[i+20]; // length is 1024
+		qTra[i] = tradb[47]; // length is 1024
 	}
+	//for (int i = 1; i <= 9999;i++)
+	//{
+	//	if (tradb[i].length > 600)
+	//		printf("tra:%d,length:%d\n", i, tradb[i].length);
+	//}
 
 	//Similarity on CPU
 	int* simiResult = new int[10 * 100];
-	g->SimilarityQueryBatch(qTra, 100, simiResult,10);
-	for (int i = 0; i <= 39; i++) {
+	g->SimilarityQueryBatch(qTra, 2, simiResult,50);
+	for (int i = 0; i <= 1; i++) {
 		cout << "Trajectory:" << i << endl;
-		for (int j = 0; j <= 9; j++) {
-			cout << simiResult[i * 10 + j] << "\t" << endl;
+		for (int j = 40; j <= 49; j++) {
+			cout << simiResult[i * 50 + j] << "\t" << endl;
 		}
 	}
 	delete[] simiResult;
@@ -106,13 +111,13 @@ int main()
 
 	//Similarity on GPU
 	simiResult = new int[10 * 100];
-	g->SimilarityQueryBatchOnGPU(qTra, 100, simiResult, 10);
-	for (int i = 0; i <= 39; i++)
+	g->SimilarityQueryBatchOnGPU(qTra, 2, simiResult, 50);
+	for (int i = 0; i <= 1; i++)
 	{
 		cout << "Trajectory:" << i << endl;
-		for (int j = 0; j <= 9; j++)
+		for (int j = 40; j <= 49; j++)
 		{
-			cout << simiResult[i * 10 + j] << "\t" << endl;
+			cout << simiResult[i * 50 + j] << "\t" << endl;
 		}
 	}
 

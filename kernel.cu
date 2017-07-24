@@ -368,9 +368,9 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 		}
 		else
 		{
-			for (int startIdx = 0; startIdx <= len1; startIdx += MAXTHREAD) {
+			for (int startIdx = 0; startIdx < len1; startIdx += MAXTHREAD) {
 				nodeID = startIdx + threadID;
-				if (nodeID <= len1) {
+				if (nodeID < len1) {
 					SPoint p1 = tra1[nodeID];
 					SPoint p2 = tra2[i - nodeID]; //这样做内存是聚集访问的吗？
 					bool subcost;
