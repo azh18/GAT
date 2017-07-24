@@ -250,22 +250,53 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	int blockID = blockIdx.x;
 	int threadID = threadIdx.x;
 	if (blockID >= queryTaskNum) return;
-	int thisQueryID = taskInfoTable[blockID].qID;
-	int thisQueryLength = queryLength[thisQueryID];
-	if ((threadID >= candidateLength[blockID]) && (threadID >= thisQueryLength)) return;
-	const int lenT = candidateLength[blockID];
-	//int iterNum = queryLength;
-	//if (lenT > queryLength)
-	//	iterNum = lenT;
-	const int iterNum = thisQueryLength + lenT - 1;
-	__shared__ int state[2][MAXLENGTH + 1]; //用于存储前两次的结果（占用8KB）
-	state[0][0] = 0;
-	state[1][0] = 1;
-	state[1][1] = 1;
+	__shared__ int thisQueryID;
+	__shared__ int thisQueryLength;
+	__shared__ int lenT;
+	__shared__ int iterNum;
+	//用于存储前两次的结果（占用8KB）
+
 	//对两个轨迹排序，保证第一个比第二个短
 	//首先把轨迹存在共享内存里
 	//这里面临着share memory是否够用的问题，书上写的是64KB，然而K80似乎有512KB
 	//如果是64KB的话，每条轨迹最长1024个点（两个轨迹共占用24KB）
+	__shared__ int state[2][MAXLENGTH + 1];
+	__shared__ SPoint *queryTraS;
+	__shared__ SPoint *traData;
+	__shared__ SPoint *tra1, *tra2; //保证tra1比tra2短
+	__shared__ int len1, len2;
+
+	if (threadID == 0) {
+		thisQueryID = taskInfoTable[blockID].qID;
+		thisQueryLength = queryLength[thisQueryID];
+		lenT = candidateLength[blockID];
+		iterNum = thisQueryLength + lenT - 1;
+		state[0][0] = 0;
+		state[1][0] = 1;
+		state[1][1] = 1;
+		queryTraS = queryTra + queryTraOffset[thisQueryID];
+		traData = candidateTraOffsets[blockID];
+		if (lenT >= thisQueryLength) {
+			tra1 = queryTraS;
+			tra2 = traData;
+			len1 = thisQueryLength;
+			len2 = lenT;
+		}
+		else
+		{
+			tra1 = traData;
+			tra2 = queryTraS;
+			len1 = lenT;
+			len2 = thisQueryLength;
+		}
+	}
+	__syncthreads();
+
+	if ((threadID >= lenT) && (threadID >= thisQueryLength)) return;
+	
+
+
+
 	//__shared__ SPoint queryTraS[MAXLENGTH];
 	//__shared__ SPoint traData[MAXLENGTH];
 
@@ -278,7 +309,7 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	//	}
 	//}
 
-	SPoint* queryTraBaseAddr = queryTra + queryTraOffset[thisQueryID];
+	//SPoint* queryTraBaseAddr = queryTra + queryTraOffset[thisQueryID];
 	//for (int i = 0; i <= thisQueryLength - 1;i+=MAXTHREAD)
 	//{
 	//	if(threadID+i<thisQueryLength)
@@ -286,47 +317,30 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	//		queryTraS[threadID + i] = *(queryTraBaseAddr + threadID + i);
 	//	}
 	//}
-	SPoint *queryTraS = queryTraBaseAddr;
-	SPoint *traData = candidateTraOffsets[blockID];
-	const SPoint *tra1, *tra2; //保证tra1比tra2短
-	int len1, len2;
-	if (lenT >= thisQueryLength) {
-		tra1 = queryTraS;
-		tra2 = traData;
-		len1 = thisQueryLength;
-		len2 = lenT;
-	}
-	else
-	{
-		tra1 = traData;
-		tra2 = queryTraS;
-		len1 = lenT;
-		len2 = thisQueryLength;
-	}
-
+	
 	int myState[5];
 	int nodeID;
+	SPoint p1;
+	SPoint p2;
+	bool subcost;
+
 	for (int i = 0; i <= iterNum - 1; i++) {//第i轮dp
 		if (i < len1 - 1) {
 			for (int startIdx = 0; startIdx <= i; startIdx += MAXTHREAD) {
 				nodeID = startIdx + threadID;
 				if (nodeID <= i) {
-					SPoint p1 = tra1[nodeID];
-					SPoint p2 = tra2[i - nodeID]; //这样做内存是聚集访问的吗？
-					bool subcost;
+					p1 = tra1[nodeID];
+					p2 = tra2[i - nodeID]; //这样做内存是聚集访问的吗？
 					if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
 						subcost = 0;
 					}
 					else
 						subcost = 1;
 					//subcost = !(((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON);
-					int state_ismatch = state[0][nodeID] + subcost;
-					int state_up = state[1][nodeID] + 1;
-					int state_left = state[1][nodeID + 1] + 1;
-					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
-					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
+					bool c1 = ((state[0][nodeID] + subcost < (state[1][nodeID] + 1)) && (state[0][nodeID] + subcost < (state[1][nodeID + 1] + 1)));
+					bool c2 = (((state[1][nodeID + 1] + 1) < (state[1][nodeID] + 1)) && (((state[1][nodeID + 1] + 1) < state[0][nodeID] + subcost)));
 					//去除if的表达方式，是否可以提升性能？
-					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
+					myState[nodeID / MAXTHREAD] = c1 * (state[0][nodeID] + subcost) + c2 * (state[1][nodeID + 1] + 1) + !(c1 || c2) * (state[1][nodeID] + 1);
 					//if ((state_ismatch < state_up) && (state_ismatch < state_left))
 					//	myState[nodeID/MAXTHREAD] = state_ismatch;
 					//else if ((state_left < state_up) && ((state_left < state_ismatch)))
@@ -342,27 +356,23 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 			for (int startIdx = 0; startIdx <= iterNum - i - 1; startIdx += MAXTHREAD) {
 				nodeID = startIdx + threadID;
 				if (nodeID <= iterNum - i - 1) {
-					SPoint p1 = tra1[nodeID + len1 - (iterNum - i)];
-					SPoint p2 = tra2[len2 - 1 - nodeID]; //这样做内存是聚集访问的吗？
-					bool subcost;
+					p1 = tra1[nodeID + len1 - (iterNum - i)];
+					p2 = tra2[len2 - 1 - nodeID]; //这样做内存是聚集访问的吗？
 					if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
 						subcost = 0;
 					}
 					else
 						subcost = 1;
-					int state_ismatch = state[0][nodeID + 1] + subcost;
-					int state_up = state[1][nodeID] + 1;
-					int state_left = state[1][nodeID + 1] + 1;
 					//if (state_ismatch < state_up)
 					//	myState[nodeID / MAXTHREAD] = state_ismatch;
 					//else if (state_left < state_up)
 					//	myState[nodeID / MAXTHREAD] = state_left;
 					//else
 					//	myState[nodeID / MAXTHREAD] = state_up;
-					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
-					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
+					bool c1 = (((state[0][nodeID + 1] + subcost) < (state[1][nodeID] + 1)) && ((state[0][nodeID + 1] + subcost) < (state[1][nodeID + 1] + 1)));
+					bool c2 = (((state[1][nodeID + 1] + 1) < (state[1][nodeID] + 1)) && (((state[1][nodeID + 1] + 1) < (state[0][nodeID + 1] + subcost))));
 					//去除if的表达方式，是否可以提升性能？
-					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
+					myState[nodeID / MAXTHREAD] = c1 * (state[0][nodeID + 1] + subcost) + c2 * (state[1][nodeID + 1] + 1) + !(c1 || c2) * (state[1][nodeID] + 1);
 				}
 			}
 		}
@@ -371,27 +381,26 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 			for (int startIdx = 0; startIdx < len1; startIdx += MAXTHREAD) {
 				nodeID = startIdx + threadID;
 				if (nodeID < len1) {
-					SPoint p1 = tra1[nodeID];
-					SPoint p2 = tra2[i - nodeID]; //这样做内存是聚集访问的吗？
-					bool subcost;
+					p1 = tra1[nodeID];
+					p2 = tra2[i - nodeID]; //这样做内存是聚集访问的吗？
 					if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
 						subcost = 0;
 					}
 					else
 						subcost = 1;
-					int state_ismatch = state[0][nodeID] + subcost;
-					int state_up = state[1][nodeID] + 1;
-					int state_left = state[1][nodeID + 1] + 1;
+					//int state_ismatch = (state[0][nodeID] + subcost);
+					//int state_up = (state[1][nodeID] + 1);
+					//int state_left = (state[1][nodeID + 1] + 1);
 					//if (state_ismatch < state_up)
 					//	myState[nodeID / MAXTHREAD] = state_ismatch;
 					//else if (state_left < state_up)
 					//	myState[nodeID / MAXTHREAD] = state_left;
 					//else
 					//	myState[nodeID / MAXTHREAD] = state_up;
-					bool c1 = ((state_ismatch < state_up) && (state_ismatch < state_left));
-					bool c2 = ((state_left < state_up) && ((state_left < state_ismatch)));
+					bool c1 = (((state[0][nodeID] + subcost) < (state[1][nodeID] + 1)) && ((state[0][nodeID] + subcost) < (state[1][nodeID + 1] + 1)));
+					bool c2 = (((state[1][nodeID + 1] + 1) < (state[1][nodeID] + 1)) && (((state[1][nodeID + 1] + 1) < (state[0][nodeID] + subcost))));
 					//去除if的表达方式，是否可以提升性能？
-					myState[nodeID / MAXTHREAD] = c1 * state_ismatch + c2 * state_left + !(c1 || c2) * state_up;
+					myState[nodeID / MAXTHREAD] = c1 * (state[0][nodeID] + subcost) + c2 * (state[1][nodeID + 1] + 1) + !(c1 || c2) * (state[1][nodeID] + 1);
 				}
 			}
 		}
