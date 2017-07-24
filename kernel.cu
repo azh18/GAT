@@ -448,7 +448,8 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 		//移动新数据到旧数据
 		for (int Idx = 0; Idx < MAXLENGTH; Idx += MAXTHREAD)
 		{
-			state[0][threadID + Idx] = state[1][threadID + Idx];
+			if(threadID + Idx < MAXLENGTH)
+				state[0][threadID + Idx] = state[1][threadID + Idx];
 		}
 		//state[0][threadID] = state[1][threadID];
 
