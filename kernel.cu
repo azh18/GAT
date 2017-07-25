@@ -1102,6 +1102,7 @@ int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTabl
 	return 0;
 }
 
+/*
 int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds, int candidateCellNum,float xmin, float ymin, float xmax, float ymax, Point*& resultsGPU, int& resultNum,Point *pointsPtrGPU,Point *&result) {
 	//第一个参数暂时没有用，注意这里candidatecells[i]已经不再是cell的id，由于只存非空
 	//第四个参数表示非空的cell个数
@@ -1199,7 +1200,7 @@ int cudaRangeQueryHandler(int* candidateCells, int* rangeStarts, int* rangeEnds,
 
 	return 0;
 }
-
+*/
 
 
 
