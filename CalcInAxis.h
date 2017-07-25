@@ -1,3 +1,4 @@
+#pragma once
 #ifndef CALCINAXIS_H_INCLUDED
 #define CALCINAXIS_H_INCLUDED
 

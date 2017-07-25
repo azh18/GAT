@@ -1074,31 +1074,31 @@ __global__ void cudaRangeQueryTest(RangeQueryStateTable* stateTable, int stateTa
 int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, uint8_t *result, int maxTrajNum
 	, int maxJobNum, cudaStream_t stream) {
 	//RangeQueryResultGPU* resultGPU;
-	MyTimer timer;
+	//MyTimer timer;
 	uint8_t* resultGPU;
 	//int resultByteNum = (maxPointNum)/8+1;//每个结果需要用几个byte保存，不能按比特，只能按字节
 	CUDA_CALL(cudaMalloc((void**)&resultGPU, (maxTrajNum)*maxJobNum));//selective低一点
 	CUDA_CALL(cudaMemset(resultGPU, 0, (maxTrajNum)*maxJobNum));
-	timer.start();
+	//timer.start();
 	//多分配一点内存，每个stateTable项占据的内存数相等
 	//CUDA_CALL(cudaMalloc((void**)&resultGPU, (maxPointNum)*stateTableLength));
 	
 	//CUDA_CALL(cudaMalloc((void**)&resultGPU, maxPointNum*stateTableLength*sizeof(RangeQueryResultGPU)));
-	timer.stop();
-	std::cout << "Time 1:" << timer.elapse() << "ms" << std::endl;
+	//timer.stop();
+	//std::cout << "Time 1:" << timer.elapse() << "ms" << std::endl;
 	
-	timer.start();	
+	//timer.start();	
 	cudaRangeQueryTest <<<stateTableLength, MAXTHREAD,0, stream >>>(stateTableGPU, stateTableLength, resultGPU, maxTrajNum);
 	CUDA_CALL(cudaDeviceSynchronize());
-	timer.stop();
-	std::cout << "Time 2:" << timer.elapse() << "ms" << std::endl;
+	//timer.stop();
+	//std::cout << "Time 2:" << timer.elapse() << "ms" << std::endl;
 
-	timer.start();
+	//timer.start();
 	
 	CUDA_CALL(cudaMemcpy(result, resultGPU, (maxTrajNum)*maxJobNum, cudaMemcpyDeviceToHost));
 
-	timer.stop();
-	std::cout << "Time 3:" << timer.elapse() << "ms" << std::endl;
+	//timer.stop();
+	//std::cout << "Time 3:" << timer.elapse() << "ms" << std::endl;
 	return 0;
 }
 

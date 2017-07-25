@@ -10,6 +10,7 @@
 #include <vector>
 #include "Grid.h"
 #include "cudaKernel.h"
+#include "SystemTest.h"
 
 
 using namespace std;
@@ -65,61 +66,65 @@ int main()
 	//int temp[7] = { 553,554,555,556,557,558,559 };
 	//int sizetemp = 7;
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
-	CPURangeQueryResult* resultTable = NULL;
-	int RangeQueryResultSize = 0;
-	MBB mbbArray[1000];
-	int* resultSize = NULL;
-	for (int i = 0; i <= 999; i++)
-		mbbArray[i] = MBB(121.1, 31.1, 121.3, 31.3);
-	MyTimer timer;
-	timer.start();
-	g->rangeQueryBatch(mbbArray, 1000, resultTable, resultSize);
-	timer.stop();
-	cout << "CPU Time:" << timer.elapse() << "ms" << endl;
+	SystemTest test(tradb, g);
+	test.rangeQueryTest(MBB(121.1, 31.1, 121.3, 31.3), 1000);
+	test.similarityQueryTest(2, 50);
 
-	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
-	void* baseAddr = baseAddrGPU;
-	timer.start();
-	g->rangeQueryBatchGPU(mbbArray, 1000, resultTable, resultSize);
-	timer.stop();
-	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
-	CUDA_CALL(cudaFree(baseAddr));
-	baseAddrGPU = NULL;
-	Trajectory* qTra = new Trajectory[100];
-	for (int i = 0; i <= 99; i++)
-	{
-		qTra[i] = tradb[47]; // length is 1024
-	}
-	//for (int i = 1; i <= 9999;i++)
+	//CPURangeQueryResult* resultTable = NULL;
+	//int RangeQueryResultSize = 0;
+	//MBB mbbArray[1000];
+	//int* resultSize = NULL;
+	//for (int i = 0; i <= 999; i++)
+	//	mbbArray[i] = MBB(121.1, 31.1, 121.3, 31.3);
+	//MyTimer timer;
+	//timer.start();
+	//g->rangeQueryBatch(mbbArray, 1000, resultTable, resultSize);
+	//timer.stop();
+	//cout << "CPU Time:" << timer.elapse() << "ms" << endl;
+
+	//CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
+	//void* baseAddr = baseAddrGPU;
+	//timer.start();
+	//g->rangeQueryBatchGPU(mbbArray, 1000, resultTable, resultSize);
+	//timer.stop();
+	//cout << "GPU Time:" << timer.elapse() << "ms" << endl;
+	//CUDA_CALL(cudaFree(baseAddr));
+	//baseAddrGPU = NULL;
+	//Trajectory* qTra = new Trajectory[100];
+	//for (int i = 0; i <= 99; i++)
 	//{
-	//	if (tradb[i].length > 600)
-	//		printf("tra:%d,length:%d\n", i, tradb[i].length);
+	//	qTra[i] = tradb[47]; // length is 1024
 	//}
+	////for (int i = 1; i <= 9999;i++)
+	////{
+	////	if (tradb[i].length > 600)
+	////		printf("tra:%d,length:%d\n", i, tradb[i].length);
+	////}
 
-	//Similarity on CPU
-	int* simiResult = new int[10 * 100];
-	g->SimilarityQueryBatch(qTra, 2, simiResult,50);
-	for (int i = 0; i <= 1; i++) {
-		cout << "Trajectory:" << i << endl;
-		for (int j = 40; j <= 49; j++) {
-			cout << simiResult[i * 50 + j] << "\t" << endl;
-		}
-	}
-	delete[] simiResult;
+	////Similarity on CPU
+	//int* simiResult = new int[10 * 100];
+	//g->SimilarityQueryBatch(qTra, 2, simiResult,50);
+	//for (int i = 0; i <= 1; i++) {
+	//	cout << "Trajectory:" << i << endl;
+	//	for (int j = 40; j <= 49; j++) {
+	//		cout << simiResult[i * 50 + j] << "\t" << endl;
+	//	}
+	//}
+	//delete[] simiResult;
 
 
 
-	//Similarity on GPU
-	simiResult = new int[10 * 100];
-	g->SimilarityQueryBatchOnGPU(qTra, 2, simiResult, 50);
-	for (int i = 0; i <= 1; i++)
-	{
-		cout << "Trajectory:" << i << endl;
-		for (int j = 40; j <= 49; j++)
-		{
-			cout << simiResult[i * 50 + j] << "\t" << endl;
-		}
-	}
+	////Similarity on GPU
+	//simiResult = new int[10 * 100];
+	//g->SimilarityQueryBatchOnGPU(qTra, 2, simiResult, 50);
+	//for (int i = 0; i <= 1; i++)
+	//{
+	//	cout << "Trajectory:" << i << endl;
+	//	for (int j = 40; j <= 49; j++)
+	//	{
+	//		cout << simiResult[i * 50 + j] << "\t" << endl;
+	//	}
+	//}
 
 
 	//g->rangeQuery(MBB(121.4, 31.15, 121.6, 31.25), resultTable, &RangeQueryResultSize);
