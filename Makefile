@@ -43,7 +43,8 @@ OBJECTS = \
 	PreProcess.o\
 	QueryResult.o\
 	SamplePoint.o\
-	Trajectory.o
+	Trajectory.o\
+	SystemTest.o
 
 
 
