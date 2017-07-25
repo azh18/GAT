@@ -45,7 +45,7 @@ int main()
 	PreProcess pp;
 	pp.readTraFromFormatedFile("SH_0_OUT.txt");
 
-	cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
+	//cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	
 	for (int i = 1; i <= 10000;i++)
@@ -80,7 +80,7 @@ int main()
 	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
 	void* baseAddr = baseAddrGPU;
 	timer.start();
-	g->rangeQueryBatchGPU(mbbArray, 100, resultTable, resultSize);
+	g->rangeQueryBatchGPU(mbbArray, 1000, resultTable, resultSize);
 	timer.stop();
 	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
 	CUDA_CALL(cudaFree(baseAddr));
