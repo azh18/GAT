@@ -167,7 +167,9 @@ int Grid::addTrajectoryIntoCell(Trajectory& t)
 				tempCellNum++;
 				tempCellBasedTraj->push_back(lastCellNo);
 				//SubTra添加
+				//printf("cell:%d\n", lastCellNo);
 				cellPtr[lastCellNo].addSubTra(t.tid, lastCellStartIdx, i - 1, i - 1 - lastCellStartIdx + 1);
+				
 				this->freqVectors.addPointToFVTable(t.tid, i - 1 - lastCellStartIdx + 1, lastCellNo);
 				lastCellNo = nowCellNo;
 				lastCellStartIdx = i;
@@ -571,7 +573,7 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 		numElemInCalculatedQueue[i] = 0;
 
 	//准备好之后，开始做查询
-	const int k = 50;
+	const int k = KSIMILARITY;
 	timer.start();
 	// check if the FD is lowerbound for all traj
 
@@ -850,7 +852,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		numElemInCalculatedQueue[i] = 0;
 
 	//准备好之后，开始做查询
-	const int k = 50;
+	const int k = KSIMILARITY;
 	int totalQueryTrajLength = 0;
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{

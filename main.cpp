@@ -68,7 +68,7 @@ int main()
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 	SystemTest test(tradb, g);
 	test.rangeQueryTest(MBB(121.1, 31.1, 121.3, 31.3), 1000);
-	test.similarityQueryTest(2, 50);
+	test.similarityQueryTest(2, 80);
 
 	//CPURangeQueryResult* resultTable = NULL;
 	//int RangeQueryResultSize = 0;

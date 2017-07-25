@@ -15,6 +15,7 @@
 #define N_BATCH_QUERY 2048
 #define TRUE 1
 #define FALSE 0
+#define KSIMILARITY 80
 
 // #define NOT_COLUMN_ORIENTED
 
