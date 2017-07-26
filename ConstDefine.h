@@ -25,6 +25,7 @@
 #include "QueryResult.h"
 #include <cstring>
 #include <thread>
+#include <algorithm>
 
 
 #ifdef WIN32

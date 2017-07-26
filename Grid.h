@@ -56,6 +56,7 @@ public:
 	int SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimilarityTraj, int kValue);
 	int SimilarityQueryBatchCPUParallel(Trajectory *qTra, int queryTrajNum, int *EDRdistance, int kValue);
 	int SimilarityMultiThreadHandler(priority_queue<FDwithID, vector<FDwithID>, cmp>* queryQueue, Trajectory* qTra, int queryTrajNum, priority_queue<FDwithID, vector<FDwithID>, cmpBig>* EDRCalculated, int kValue, int startQueryIdx);
+	int FDCalculateParallelHandeler(priority_queue<FDwithID, vector<FDwithID>, cmp> *queue, map<int, int>* freqVectorQ);
 	int SimilarityExecuter(SPoint* queryTra, SPoint** candidateTra, int queryLength, int* candidateLength, int candSize, int *resultArray);
 	int SimilarityQueryBatchOnGPU(Trajectory * qTra, int queryTrajNum, int * topKSimilarityTraj, int kValue);
 
