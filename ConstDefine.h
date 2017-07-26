@@ -24,6 +24,8 @@
 #include <math.h>
 #include "QueryResult.h"
 #include <cstring>
+#include <thread>
+
 
 #ifdef WIN32
 	#include "WinTimer.h"

@@ -58,7 +58,8 @@ int SystemTest::similarityQueryTest(int similarityScale, int similarityKValue)
 
 	//Similarity on CPU
 	int* simiResult = new int[similarityKValue * similarityScale];
-	g->SimilarityQueryBatch(qTra, similarityScale, simiResult, similarityKValue);
+	//g->SimilarityQueryBatch(qTra, similarityScale, simiResult, similarityKValue);
+	g->SimilarityQueryBatchCPUParallel(qTra, similarityScale, simiResult, similarityKValue);
 	/*
 	for (int i = 0; i <= similarityScale-1; i++) {
 		cout << "Trajectory:" << i << endl;
