@@ -54,7 +54,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra, int candi
 	//if (lenT > queryLength)
 	//	iterNum = lenT;
 	const int iterNum = queryLength + lenT - 1;
-	__shared__ int state[2][MAXTHREAD]; //用于存储前两次的结果
+	__shared__ short state[2][MAXTHREAD]; //用于存储前两次的结果
 	state[0][0] = 0;
 	state[1][0] = 1;
 	state[1][1] = 1;
@@ -260,7 +260,7 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 	//首先把轨迹存在共享内存里
 	//这里面临着share memory是否够用的问题，书上写的是64KB，然而K80似乎有512KB
 	//如果是64KB的话，每条轨迹最长1024个点（两个轨迹共占用24KB）
-	__shared__ int state[2][MAXLENGTH + 1];
+	__shared__ short state[2][MAXLENGTH + 1];
 	__shared__ SPoint *queryTraS;
 	__shared__ SPoint *traData;
 	__shared__ SPoint *tra1, *tra2; //保证tra1比tra2短
