@@ -11,10 +11,11 @@ SystemTest::~SystemTest()
 {
 }
 
-SystemTest::SystemTest(Trajectory* tradb, Grid* g)
+SystemTest::SystemTest(Trajectory* tradb, Grid* g, STIG *stig)
 {
 	this->tradb = tradb;
 	this->g = g;
+	this->stig = stig;
 }
 
 int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
@@ -31,6 +32,7 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	g->rangeQueryBatch(mbbArray, rangeQueryNum, resultTable, resultSize);
 	timer.stop();
 	cout << "CPU Time:" << timer.elapse() << "ms" << endl;
+
 
 	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
 	void* baseAddr = baseAddrGPU;
@@ -87,5 +89,22 @@ int SystemTest::similarityQueryTest(int similarityScale, int similarityKValue)
 	}
 	*/
 	delete[] simiResult;
+	return 0;
+}
+
+int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
+{
+	this->rangeQueryMBB = rangeQueryMBB;
+	this->rangeQueryNum = rangeQueryNum;
+	CPURangeQueryResult* resultTable = NULL;
+	MBB mbbArray[5000];
+	int* resultSize = NULL;
+	for (int i = 0; i <= 4999; i++)
+		mbbArray[i] = rangeQueryMBB;
+	MyTimer timer;
+	timer.start();
+	stig->rangeQueryGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
+	timer.stop();
+	cout << "CPU Time of STIG:" << timer.elapse() << "ms" << endl;
 	return 0;
 }

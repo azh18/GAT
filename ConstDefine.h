@@ -26,10 +26,7 @@
 #include <cstring>
 #include <thread>
 #include <algorithm>
-<<<<<<< HEAD
 
-=======
->>>>>>> b3a1d5c84e9e2d84ee14aab2d83879b45aa28edd
 
 #ifdef WIN32
 	#include "WinTimer.h"

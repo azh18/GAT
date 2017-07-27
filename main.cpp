@@ -11,6 +11,7 @@
 #include "Grid.h"
 #include "cudaKernel.h"
 #include "SystemTest.h"
+#include "STIG.h"
 
 
 using namespace std;
@@ -55,6 +56,9 @@ int main()
 	}
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
 	g->addDatasetToGrid(tradb, pp.maxTid);
+	STIG *stig = new STIG();
+	stig->initial(1024, 2, tradb, pp.maxTid);
+
 	//delete[] tradb;
 	int count = 0;
 	for (int i = 0; i <= g->cellnum - 1; i++)
@@ -66,9 +70,11 @@ int main()
 	//int temp[7] = { 553,554,555,556,557,558,559 };
 	//int sizetemp = 7;
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
-	SystemTest test(tradb, g);
+	SystemTest test(tradb, g,stig);
 	test.rangeQueryTest(MBB(121.1, 31.1, 121.3, 31.3), 1000);
+	test.STIGrangeQueryTest(MBB(121.1, 31.1, 121.3, 31.3), 1000);
 	test.similarityQueryTest(2, 80);
+	
 
 	//CPURangeQueryResult* resultTable = NULL;
 	//int RangeQueryResultSize = 0;
