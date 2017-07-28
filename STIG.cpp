@@ -1,6 +1,7 @@
 #include "STIG.h"
 #include "cudaKernel.h"
 #include <iostream>
+#include <fstream>
 
 using namespace std;
 extern void* baseAddrGPU;
@@ -295,13 +296,14 @@ int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTa
 	memset(resultsReturned, 0, rangeNum*(this->maxTid+1));
 	cudaRangeQuerySTIGHandler(stateTableGPU, stateTable.size(), resultsReturned, (this->maxTid+1), rangeNum, stream);
 	//shanhou
-	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
-	//	for (int traID = 1; traID <= (this->maxTid); traID++) {
-	//		if (resultsReturned[jobID*(this->maxTid+1) + traID] == 1) {
-	//			cout << "job " << jobID << "find" << traID << endl;
-	//		}
-	//	}
-	//}
+	ofstream fp("queryResult(STIG).txt",ios_base::out);
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
+		for (int traID = 1; traID <= (this->maxTid); traID++) {
+			if (resultsReturned[jobID*(this->maxTid+1) + traID] == 1) {
+				fp << "job " << jobID << "find" << traID << endl;
+			}
+		}
+	}
 	cudaStreamDestroy(stream);
 	return 0;
 }

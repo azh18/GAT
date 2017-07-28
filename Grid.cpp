@@ -455,13 +455,14 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 
 	//timer.start();
 	cudaRangeQueryTestHandler(stateTableGPU, stateTableLength, resultsReturned, this->trajNum + 1, rangeNum, stream);
-	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
-	//	for (int traID = 0; traID <= this->trajNum; traID++) {
-	//		if (resultsReturned[jobID*(this->trajNum + 1) + traID] == 1) {
-	//			cout << "job " << jobID << "find" << traID << endl;
-	//		}
-	//	}
-	//}
+	ofstream fp("queryResult(GTS).txt", ios_base::out);
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
+		for (int traID = 0; traID <= this->trajNum; traID++) {
+			if (resultsReturned[jobID*(this->trajNum + 1) + traID] == 1) {
+				fp << "job " << jobID << "find" << traID << endl;
+			}
+		}
+	}
 	//for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);
