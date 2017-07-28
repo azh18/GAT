@@ -1071,6 +1071,84 @@ __global__ void cudaRangeQueryTest(RangeQueryStateTable* stateTable, int stateTa
 	//}
 }
 
+__global__ void cudaRangeQuerySTIG(RangeQueryStateTable* stateTable, int stateTableLength, uint8_t* result,
+	const int maxTrajNum) {
+	int bID = blockIdx.x;
+	int tID = threadIdx.x;
+	//if (bID > stateTableLength)
+	//	return;
+	__shared__ RangeQueryStateTable sharedStateTable;
+	// __shared__ uint8_t resultTemp[10000]; //10K
+	if (tID == 0)
+		sharedStateTable = (stateTable[bID]);
+	__syncthreads();
+	int jobID = sharedStateTable.queryID;
+	SPoint *baseAddr = (SPoint*)(sharedStateTable.ptr);
+	int candidateNum = sharedStateTable.candidatePointNum;//该block的需要查询的点的个数
+														  //int resultOffset = bID*maxPointNumInStateTable; //该block的结果的起始地址
+	SPoint p;
+	//new version
+	for (int i = 0; i < candidateNum; i += MAXTHREAD) {
+		//p = *(baseAddr + (i*MAXTHREAD + tID));
+		if (i + tID < candidateNum) {
+			p = baseAddr[i + tID];
+			//result[i*MAXTHREAD + tID + resultOffset].idx = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) &&
+			//(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))*(i*MAXTHREAD + tID);//如果验证通过，则该值为本身编号，否则为0
+			//result[i*MAXTHREAD + tID + resultOffset].jobID = bID;
+			//result[resultOffset + (i*MAXTHREAD + tID)] = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) && 
+			//		(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin));
+			if ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) && (p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))
+				result[jobID*maxTrajNum + p.tID] = 1;
+			//如果验证通过，则相应位被置为1
+		}
+		//__syncthreads();
+	}
+
+
+
+	//else {
+	//	//result[candidateNum / MAXTHREAD * MAXTHREAD + tID + resultOffset].idx = 0; //多出来的部分，直接设为无效即可
+	//}
+	//__syncthreads();
+	//__syncthreads();
+	//int globalTID = blockDim.x * blockIdx.x + threadIdx.x;
+	//if (globalTID < stateTableLength) {
+
+	//}
+}
+
+int cudaRangeQuerySTIGHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, uint8_t *result, int maxTrajNum
+	, int maxQueryNum, cudaStream_t stream)
+{
+	//RangeQueryResultGPU* resultGPU;
+	//MyTimer timer;
+	uint8_t* resultGPU;
+	//int resultByteNum = (maxPointNum)/8+1;//每个结果需要用几个byte保存，不能按比特，只能按字节
+	CUDA_CALL(cudaMalloc((void**)&resultGPU, (maxTrajNum)*maxQueryNum));//selective低一点
+	CUDA_CALL(cudaMemset(resultGPU, 0, (maxTrajNum)*maxQueryNum));
+	//timer.start();
+	//多分配一点内存，每个stateTable项占据的内存数相等
+	//CUDA_CALL(cudaMalloc((void**)&resultGPU, (maxPointNum)*stateTableLength));
+
+	//CUDA_CALL(cudaMalloc((void**)&resultGPU, maxPointNum*stateTableLength*sizeof(RangeQueryResultGPU)));
+	//timer.stop();
+	//std::cout << "Time 1:" << timer.elapse() << "ms" << std::endl;
+
+	//timer.start();	
+	cudaRangeQuerySTIG << <stateTableLength, MAXTHREAD, 0, stream >> >(stateTableGPU, stateTableLength, resultGPU, maxTrajNum);
+	CUDA_CALL(cudaDeviceSynchronize());
+	//timer.stop();
+	//std::cout << "Time 2:" << timer.elapse() << "ms" << std::endl;
+
+	//timer.start();
+
+	CUDA_CALL(cudaMemcpy(result, resultGPU, (maxTrajNum)*maxQueryNum, cudaMemcpyDeviceToHost));
+
+	//timer.stop();
+	//std::cout << "Time 3:" << timer.elapse() << "ms" << std::endl;
+	return 0;
+}
+
 int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, uint8_t *result, int maxTrajNum
 	, int maxJobNum, cudaStream_t stream) {
 	//RangeQueryResultGPU* resultGPU;
@@ -1096,6 +1174,7 @@ int cudaRangeQueryTestHandler(RangeQueryStateTable* stateTableGPU, int stateTabl
 	//timer.start();
 	
 	CUDA_CALL(cudaMemcpy(result, resultGPU, (maxTrajNum)*maxJobNum, cudaMemcpyDeviceToHost));
+	CUDA_CALL(cudaFree(resultGPU));
 
 	//timer.stop();
 	//std::cout << "Time 3:" << timer.elapse() << "ms" << std::endl;
@@ -1219,6 +1298,8 @@ int cudaRangeQueryHandler(Point* pointsPtr, int pointNum, float xmin, float ymin
 	return 0;
 }
 #endif
+
+
 
 
 __global__ void addKernel(int *c, const int *a, const int *b)

@@ -48,6 +48,7 @@ public:
 	std::vector<SPoint> allPoints;
 	int depth;
 	int blockSize;
+	int maxTid;
 	int initial(int blockSize, int totalDim, Trajectory* db, int trajNum);
 	int createIndex(LeafNode* parent, int depth, int startIdx, int endIdx);
 	int createIndex(InternalNode* parent, int depth, int startIdx, int endIdx);

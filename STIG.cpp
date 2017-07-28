@@ -1,6 +1,9 @@
 #include "STIG.h"
+#include "cudaKernel.h"
+#include <iostream>
 
 using namespace std;
+extern void* baseAddrGPU;
 
 STIGNode::STIGNode()
 {
@@ -32,7 +35,7 @@ int STIG::initial(int blockSize, int totalDim, Trajectory* db, int trajNum)
 {
 	this->blockSize = blockSize;
 	this->totalDim = totalDim;
-
+	this->maxTid = trajNum;
 	int cnt = 0;
 	for (int i = 1; i <= trajNum;i++)
 	{
@@ -84,6 +87,7 @@ int STIG::createIndex(LeafNode* parent, int depth, int startIdx, int endIdx)
 	}
 	MBB mbb(xmin, ymin, xmax, ymax);
 	parent->boundingBox = mbb;
+	//printf("[%d,%d]:%f,%f,%f,%f------", parent->leftRange, parent->rightRange, mbb.xmin, mbb.xmax, mbb.ymin, mbb.ymax);
 	return 0;
 }
 
@@ -241,20 +245,64 @@ int STIG::searchNode(MBB queryMBB, std::vector<STIGBlock>* allCandBlocks, LeafNo
 		b.startIdx = node->leftRange;
 		b.endIdx = node->rightRange;
 		allCandBlocks->push_back(b);
+		//printf("Result: [%d,%d]:%f,%f,%f,%f\n", node->leftRange, node->rightRange, node->boundingBox.xmin, node->boundingBox.xmax, node->boundingBox.ymin, node->boundingBox.ymax);
 	}
 	return 0;
 }
 
 int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize)
 {
+	// search all blocks should be sent to GPU
+	cudaStream_t stream;
+	cudaStreamCreate(&stream);
+
+	void* baseAddr = baseAddrGPU;
+	void* allPointsInGPU = baseAddr;
+	vector<RangeQueryStateTable> stateTable;
+	int cntTask = 0;
 	for (int i = 0; i <= rangeNum - 1; i++) {
 		vector<STIGBlock> allCandBlocks;
 		this->searchTree(bounds[i], &allCandBlocks);
-		for (int i = 0; i <= allCandBlocks.size() - 1; i++)
+		for (int j = 0; j <= allCandBlocks.size() - 1;j++)
 		{
-			printf("[%d,%d]\t", allCandBlocks[i].startIdx, allCandBlocks[i].endIdx);
+			RangeQueryStateTable stateTableCPU;
+			int startIdx = allCandBlocks[j].startIdx;
+			int endIdx = allCandBlocks[j].endIdx;
+			int candPointsNum = endIdx - startIdx + 1;
+			//SPoint pp[1000];
+			//memcpy(pp, &this->allPoints[startIdx], sizeof(SPoint)*candPointsNum);
+			//printf("startIdx: %d\n", startIdx);
+			CUDA_CALL(cudaMemcpyAsync(baseAddr, (void*)(&this->allPoints[startIdx]), sizeof(SPoint)*candPointsNum, cudaMemcpyHostToDevice, stream));
+			stateTableCPU.ptr = baseAddr;
+			stateTableCPU.xmin = bounds[i].xmin;
+			stateTableCPU.xmax = bounds[i].xmax;
+			stateTableCPU.ymin = bounds[i].ymin;
+			stateTableCPU.ymax = bounds[i].ymax;
+			stateTableCPU.queryID = i;
+			stateTableCPU.candidatePointNum = candPointsNum;
+			stateTableCPU.startIdxInAllPoints = 0;
+			baseAddr = (void*)((SPoint*)baseAddr + candPointsNum);
+			stateTable.push_back(stateTableCPU);
+			cntTask++;
 		}
 	}
+	// allocate GPU, using stateTable
+	RangeQueryStateTable* stateTableGPU = NULL;
+	CUDA_CALL(cudaMalloc((void**)&stateTableGPU, sizeof(RangeQueryStateTable)*stateTable.size()));
+	CUDA_CALL(cudaMemcpyAsync(stateTableGPU, (void*)(&stateTable[0]), sizeof(RangeQueryStateTable)*stateTable.size(), cudaMemcpyHostToDevice, stream));
+	//RangeQueryStateTable* stateTableGPU = (RangeQueryStateTable*)baseAddr;
+	uint8_t *resultsReturned = new uint8_t[rangeNum*(this->maxTid+1)];
+	memset(resultsReturned, 0, rangeNum*(this->maxTid+1));
+	cudaRangeQuerySTIGHandler(stateTableGPU, stateTable.size(), resultsReturned, (this->maxTid+1), rangeNum, stream);
+	//shanhou
+	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
+	//	for (int traID = 1; traID <= (this->maxTid); traID++) {
+	//		if (resultsReturned[jobID*(this->maxTid+1) + traID] == 1) {
+	//			cout << "job " << jobID << "find" << traID << endl;
+	//		}
+	//	}
+	//}
+	cudaStreamDestroy(stream);
 	return 0;
 }
 

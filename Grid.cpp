@@ -429,6 +429,7 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	{
 		findMatchNodeInQuadTreeGPU(root, bounds[i], NULL, stream, i);
 	}
+	//printf("StateTableLength:%d",this->stateTableLength);
 	//stateTable中点的数目的最大值
 	int maxPointNum = 0;
 	for (int i = 0; i <= stateTableLength - 1; i++)

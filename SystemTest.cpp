@@ -94,6 +94,7 @@ int SystemTest::similarityQueryTest(int similarityScale, int similarityKValue)
 
 int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 {
+	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
 	this->rangeQueryMBB = rangeQueryMBB;
 	this->rangeQueryNum = rangeQueryNum;
 	CPURangeQueryResult* resultTable = NULL;
