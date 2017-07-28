@@ -330,7 +330,7 @@ int Grid::writeCellsToFile(int* cellNo, int cellNum, string file)
 
 int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize)
 {
-	ofstream out("queryResult.txt", ios::out);
+	ofstream out("queryResult(CPUGTS).txt", ios::out);
 	ResultTable = (CPURangeQueryResult*)malloc(sizeof(CPURangeQueryResult));
 	ResultTable->traid = -1; //table¿ªÍ·traidÎª-1 flag
 	ResultTable->next = NULL;
@@ -338,6 +338,8 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 	CPURangeQueryResult  *nowResult;
 	nowResult = ResultTable;
 	int totalLevel = int(log2(this->cellnum) / log2(4));
+	uint8_t *resultsReturned = new uint8_t[rangeNum*(this->trajNum + 1)];
+	memset(resultsReturned, 0, rangeNum*(this->trajNum + 1));
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		//int candidateNodeNum = 0;
@@ -363,6 +365,7 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 					// no compress
 					float realX = allPoints[idx].x;
 					float realY = allPoints[idx].y;
+					int tID = allPoints[idx].tID;
 					if (bounds[i].pInBox(realX, realY))
 					{
 						//printf("%f,%f", realX, realY);
@@ -380,12 +383,22 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 						//newResult->next = NULL;
 						//nowResult->next = newResult;
 						//nowResult = newResult;
+						resultsReturned[i*(this->trajNum + 1) + tID] = 1;
 						resultSetSize[i]++;
 					}
 				}
 			}
 		}
 	}
+
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
+		for (int traID = 1; traID <= (this->trajNum); traID++) {
+			if (resultsReturned[jobID*(this->trajNum + 1) + traID] == 1) {
+				out << "job " << jobID << "find" << traID << endl;
+			}
+		}
+	}
+
 	out.close();
 	return 0;
 }
