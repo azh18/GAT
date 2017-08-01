@@ -169,7 +169,7 @@ int Grid::addTrajectoryIntoCell(Trajectory& t)
 				//SubTra添加
 				//printf("cell:%d\n", lastCellNo);
 				cellPtr[lastCellNo].addSubTra(t.tid, lastCellStartIdx, i - 1, i - 1 - lastCellStartIdx + 1);
-				
+
 				this->freqVectors.addPointToFVTable(t.tid, i - 1 - lastCellStartIdx + 1, lastCellNo);
 				lastCellNo = nowCellNo;
 				lastCellStartIdx = i;
@@ -335,11 +335,11 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 	ResultTable->traid = -1; //table开头traid为-1 flag
 	ResultTable->next = NULL;
 	resultSetSize = (int*)malloc(sizeof(int) * rangeNum);
-	CPURangeQueryResult  *nowResult;
+	CPURangeQueryResult* nowResult;
 	nowResult = ResultTable;
 	int totalLevel = int(log2(this->cellnum) / log2(4));
-	uint8_t *resultsReturned = new uint8_t[rangeNum*(this->trajNum + 1)];
-	memset(resultsReturned, 0, rangeNum*(this->trajNum + 1));
+	uint8_t* resultsReturned = new uint8_t[rangeNum * (this->trajNum + 1)];
+	memset(resultsReturned, 0, rangeNum * (this->trajNum + 1));
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		//int candidateNodeNum = 0;
@@ -383,7 +383,7 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 						//newResult->next = NULL;
 						//nowResult->next = newResult;
 						//nowResult = newResult;
-						resultsReturned[i*(this->trajNum + 1) + tID] = 1;
+						resultsReturned[i * (this->trajNum + 1) + tID] = 1;
 						resultSetSize[i]++;
 					}
 				}
@@ -391,9 +391,12 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 		}
 	}
 
-	for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
-		for (int traID = 1; traID <= (this->trajNum); traID++) {
-			if (resultsReturned[jobID*(this->trajNum + 1) + traID] == 1) {
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
+	{
+		for (int traID = 1; traID <= (this->trajNum); traID++)
+		{
+			if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
+			{
 				out << "job " << jobID << "find" << traID << endl;
 			}
 		}
@@ -469,9 +472,12 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//timer.start();
 	cudaRangeQueryTestHandler(stateTableGPU, stateTableLength, resultsReturned, this->trajNum + 1, rangeNum, stream);
 	ofstream fp("queryResult(GTS).txt", ios_base::out);
-	for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
-		for (int traID = 0; traID <= this->trajNum; traID++) {
-			if (resultsReturned[jobID*(this->trajNum + 1) + traID] == 1) {
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
+	{
+		for (int traID = 0; traID <= this->trajNum; traID++)
+		{
+			if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
+			{
 				fp << "job " << jobID << "find" << traID << endl;
 			}
 		}
@@ -593,7 +599,6 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 	// check if the FD is lowerbound for all traj
 
 
-
 	// check if the FD is lowerbound for all traj
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{
@@ -692,7 +697,7 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 		//timer.stop();
 		//cout << "Part4 time:" << timer.elapse() << endl;
 	}
-	for (int qID = 0; qID <= queryTrajNum - 1;qID++)
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{
 		for (int i = 0; i <= kValue - 1; i++)
 		{
@@ -775,14 +780,14 @@ int Grid::SimilarityMultiThreadHandler(priority_queue<FDwithID, vector<FDwithID>
 			//更新worstNow
 			for (int i = 0; i <= k - 1; i++)
 			{
-				if (numElemInCalculatedQueue[qID-startQueryIdx] < kValue)
+				if (numElemInCalculatedQueue[qID - startQueryIdx] < kValue)
 				{
 					//直接往PQ里加
 					FDwithID fd;
 					fd.traID = candidateTrajID[i];
 					fd.FD = resultReturned[i];
 					EDRCalculated[qID].push(fd);
-					numElemInCalculatedQueue[qID-startQueryIdx]++;
+					numElemInCalculatedQueue[qID - startQueryIdx]++;
 				}
 				else
 				{
@@ -875,12 +880,11 @@ int Grid::SimilarityQueryBatchCPUParallel(Trajectory* qTra, int queryTrajNum, in
 
 	const int THREAD_CPU = 4;
 	vector<thread> threads;
-	for (int i = 0; i <= queryTrajNum - 1;i++)
+	for (int i = 0; i <= queryTrajNum - 1; i++)
 	{
 		threads.push_back(thread(std::mem_fn(&Grid::SimilarityMultiThreadHandler), this, queryQueue, qTra, 1, EDRCalculated, kValue, i));
 	}
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
-
 
 
 	//// check if the FD is lowerbound for all traj
@@ -1233,7 +1237,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	SPoint* candidateTraGPU = (SPoint*)nowAddrGPU;
 	//tt.stop();
 	//cout << "Part3.0.2 time:" << tt.elapse() << endl;
-	
+
 	while (!isAllFinished)
 	{
 		//tt.start();
@@ -1247,7 +1251,6 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		SPoint* tempPtr = candidateTra;
 		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 		{
-			
 			if (isFinished[qID])
 				validQueryTraNum--;
 			if (!isFinished[qID])
@@ -1349,12 +1352,11 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 
 		//构建candidateTraj和candidateLength完成，准备并行Similarity search
 		//只需要查询isFinished为false的queryTra，至于是哪些可以直接看offsetTableCandidateTra
-		int *resultReturned = new int[queryTrajNum*k];
+		int* resultReturned = new int[queryTrajNum * k];
 		int* resultReturnedGPU = (int*)whileAddrGPU;
-		whileAddrGPU = (void*)((int*)whileAddrGPU + k*queryTrajNum);
-	
-		//CUDA_CALL(cudaMalloc((void**)resultReturnedGPU, sizeof(int)*k*queryTrajNum));
+		whileAddrGPU = (void*)((int*)whileAddrGPU + k * queryTrajNum);
 
+		//CUDA_CALL(cudaMalloc((void**)resultReturnedGPU, sizeof(int)*k*queryTrajNum));
 
 
 		//tt.stop();
@@ -1405,7 +1407,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 			worstNow[qID] = EDRCalculated[qID].top().FD;
 
-		
+
 		bool temp = TRUE;
 		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 		{
@@ -1504,7 +1506,8 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	cout << "Part3 time:" << timer.elapse() << endl;
 
 	//输出结果
-	for (int qID = 0; qID <= queryTrajNum - 1; qID++) {
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
 		for (int i = 0; i <= kValue - 1; i++)
 		{
 			topKSimilarityTraj[qID * kValue + i] = EDRCalculated[qID].top().traID;
@@ -1533,6 +1536,568 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	cudaStreamDestroy(defaultStream);
 	return 0;
 }
+
+
+int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int* topKSimilarityTraj, int kValue)
+//所有（批量）query级别上的GPU并行
+//备用思路：分别处理每一条查询轨迹，用不同stream并行
+{
+	void* baseAddrSimi[2] = {NULL};
+	void* whileAddrGPU[2] = {NULL};
+	void* whileAddrGPUBase[2];
+	void* nowAddrGPU[2] = {NULL};;
+	int num_devices;
+	cudaStream_t defaultStream[2];
+	CUDA_CALL(cudaGetDeviceCount(&num_devices));
+	for (int device_idx = 0; device_idx <= num_devices - 1; device_idx++)
+	{
+		CUDA_CALL(cudaSetDevice(device_idx));
+		CUDA_CALL(cudaMalloc((void**)(&baseAddrSimi[device_idx]), 768 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU[device_idx]), 256 * 1024 * 1024));
+		whileAddrGPUBase[device_idx] = whileAddrGPU[device_idx];
+		nowAddrGPU[device_idx] = baseAddrSimi[device_idx];
+		cudaStreamCreate(&defaultStream[device_idx]);
+	}
+
+	//当前分配到的地址
+
+
+	MyTimer timer;
+	priority_queue<FDwithID, vector<FDwithID>, cmp>* queryQueue = new priority_queue<FDwithID, vector<FDwithID>, cmp>[queryTrajNum];
+	map<int, int>* freqVectors = new map<int, int>[queryTrajNum];
+	//为查询构造freqVector
+	timer.start();
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		for (int pID = 0; pID <= qTra[qID].length - 1; pID++)
+		{
+			int cellid = WhichCellPointIn(SamplePoint(qTra[qID].points[pID].lon, qTra[qID].points[pID].lat, 1, 1));
+			map<int, int>::iterator iter = freqVectors[qID].find(cellid);
+			if (iter == freqVectors[qID].end())
+			{
+				freqVectors[qID].insert(pair<int, int>(cellid, 1));
+			}
+			else
+			{
+				freqVectors[qID][cellid] = freqVectors[qID][cellid] + 1;
+			}
+		}
+	}
+	timer.stop();
+	cout << "Part1 time:" << timer.elapse() << endl;
+	timer.start();
+	//为剪枝计算Frequency Distance
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
+		//this->freqVectors.formPriorityQueueGPU(&queryQueue[qID], &freqVectors[qID]);
+	}
+	timer.stop();
+	cout << "Part2 time:" << timer.elapse() << endl;
+	//用一个优先队列存储当前最优结果，大顶堆，保证随时可以pop出差的结果
+	timer.start();
+	//MyTimer tt;
+	//tt.start();
+	priority_queue<FDwithID, vector<FDwithID>, cmpBig>* EDRCalculated = new priority_queue<FDwithID, vector<FDwithID>, cmpBig>[queryTrajNum];
+	int* numElemInCalculatedQueue = new int[queryTrajNum]; //保存当前优先队列结果，保证优先队列大小不大于kValue
+	for (int i = 0; i <= queryTrajNum - 1; i++)
+		numElemInCalculatedQueue[i] = 0;
+
+	//准备好之后，开始做查询
+	const int k = KSIMILARITY;
+
+	/*
+	int queryNumEachGPU[2];
+	queryNumEachGPU[0] = queryTrajNum / 2;
+	queryNumEachGPU[1] = queryTrajNum - queryNumEachGPU[0];
+	int queryStartIdx[2];
+	queryStartIdx[0] = 0;
+	queryStartIdx[1] = queryNumEachGPU[0];
+	int queryEndIdx[2];
+	queryEndIdx[0] = queryNumEachGPU[0] - 1;
+	queryEndIdx[1] = queryTrajNum - 1;
+
+	for (int device_idx = 0; device_idx < 2;device_idx++)
+	{
+		CUDA_CALL(cudaSetDevice(device_idx));
+		int totalQueryTrajLength = 0;
+		for (int qID = queryStartIdx[device_idx]; qID <= queryEndIdx[device_idx]; qID++)
+		{
+			totalQueryTrajLength += qTra[qID].length;
+		}
+		//查询轨迹信息的准备：
+		//保存查询的轨迹
+		SPoint* allQueryTra = (SPoint*)malloc(sizeof(SPoint) * totalQueryTrajLength);
+		//保存在allQueryTra中各个轨迹的offset（起始地址）
+		int* allQueryTraOffset = new int[queryNumEachGPU[device_idx]];
+		SPoint* queryTra = allQueryTra;
+		SPoint* queryTraGPU = (SPoint*)baseAddrSimi[device_idx];
+		//这个才是保存所有queryTra的基址
+		SPoint* queryTraGPUBase = queryTraGPU;
+		int* queryTraLength = new int[queryNumEachGPU[device_idx]];
+		allQueryTraOffset[0] = 0;
+		printf("queryTrajNum:%d", queryNumEachGPU[device_idx]);
+		printf("totalQueryTrajLength:%d", totalQueryTrajLength);
+		for (int qID = queryStartIdx[device_idx]; qID <= queryEndIdx[device_idx]; qID++)
+		{
+			int idxInThisGPU = qID - queryStartIdx[device_idx];
+			for (int i = 0; i <= qTra[qID].length - 1; i++)
+			{
+				queryTra[i].x = qTra[qID].points[i].lon;
+				queryTra[i].y = qTra[qID].points[i].lat;
+				queryTra[i].tID = qTra[qID].tid;
+			}
+			CUDA_CALL(cudaMemcpyAsync(queryTraGPU, queryTra, sizeof(SPoint)*qTra[qID].length, cudaMemcpyHostToDevice, defaultStream[device_idx]));
+			queryTraLength[idxInThisGPU] = qTra[qID].length;
+			queryTraGPU = queryTraGPU + qTra[qID].length;
+			queryTra += qTra[qID].length;
+			if (qID != queryTrajNum - 1)
+				allQueryTraOffset[idxInThisGPU + 1] = allQueryTraOffset[idxInThisGPU] + qTra[qID].length;
+		}
+		nowAddrGPU[device_idx] = queryTraGPU;
+		// queryTraOffsetGPU是保存queryTra中offset的基地址
+		int* queryTraOffsetGPU = (int*)nowAddrGPU;
+		CUDA_CALL(cudaMemcpyAsync(queryTraOffsetGPU, allQueryTraOffset, sizeof(int)*queryNumEachGPU[device_idx], cudaMemcpyHostToDevice, defaultStream[device_idx]));
+		nowAddrGPU[device_idx] = (void*)((int*)nowAddrGPU + queryNumEachGPU[device_idx]);
+
+		//构建queryLength
+		int* queryLengthGPU = (int*)nowAddrGPU;
+		CUDA_CALL(cudaMemcpyAsync(queryLengthGPU, queryTraLength, sizeof(int)*queryNumEachGPU[device_idx], cudaMemcpyHostToDevice, defaultStream[device_idx]));
+		nowAddrGPU[device_idx] = (void*)((int*)nowAddrGPU + queryNumEachGPU[device_idx]);
+	}
+
+	*/
+
+	//-----------------------------------------------
+	int totalQueryTrajLength = 0;
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		totalQueryTrajLength += qTra[qID].length;
+	}
+	//查询轨迹信息的准备：
+	//保存查询的轨迹
+	SPoint* allQueryTra = (SPoint*)malloc(sizeof(SPoint) * totalQueryTrajLength);
+	//保存在allQueryTra中各个轨迹的offset（起始地址）
+	int* allQueryTraOffset = new int[queryTrajNum];
+	SPoint* queryTra = allQueryTra;
+
+	SPoint* queryTraGPU[2];
+	SPoint* queryTraGPUBase[2];
+	for (int device_idx = 0; device_idx <= 1; device_idx++)
+	{
+		queryTraGPU[device_idx] = (SPoint*)nowAddrGPU[device_idx];
+		//这个才是保存所有queryTra的基址
+		queryTraGPUBase[device_idx] = queryTraGPU[device_idx];
+	}
+
+	int* queryTraLength = new int[queryTrajNum];
+	allQueryTraOffset[0] = 0;
+	printf("queryTrajNum:%d", queryTrajNum);
+	printf("totalQueryTrajLength:%d", totalQueryTrajLength);
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		for (int i = 0; i <= qTra[qID].length - 1; i++)
+		{
+			queryTra[i].x = qTra[qID].points[i].lon;
+			queryTra[i].y = qTra[qID].points[i].lat;
+			queryTra[i].tID = qTra[qID].tid;
+		}
+		for (int device_idx = 0; device_idx <= 1; device_idx++)
+			CUDA_CALL(cudaMemcpyAsync(queryTraGPU[device_idx], queryTra, sizeof(SPoint)*qTra[qID].length, cudaMemcpyHostToDevice, defaultStream[device_idx]));
+		queryTraLength[qID] = qTra[qID].length;
+		for (int device_idx = 0; device_idx <= 1; device_idx++)
+			queryTraGPU[device_idx] = queryTraGPU[device_idx] + qTra[qID].length;
+		queryTra += qTra[qID].length;
+		if (qID != queryTrajNum - 1)
+			allQueryTraOffset[qID + 1] = allQueryTraOffset[qID] + qTra[qID].length;
+	}
+	int* queryTraOffsetGPU[2];
+	int* queryLengthGPU[2];
+	for (int device_idx = 0; device_idx <= 1; device_idx++)
+	{
+		nowAddrGPU[device_idx] = queryTraGPU[device_idx];
+		// queryTraOffsetGPU是保存queryTra中offset的基地址
+		queryTraOffsetGPU[device_idx] = (int*)nowAddrGPU[device_idx];
+		CUDA_CALL(cudaMemcpyAsync(queryTraOffsetGPU[device_idx], allQueryTraOffset, sizeof(int)*queryTrajNum, cudaMemcpyHostToDevice, defaultStream[device_idx]));
+		nowAddrGPU[device_idx] = (void*)((int*)nowAddrGPU[device_idx] + queryTrajNum);
+
+		//构建queryLength
+		queryLengthGPU[device_idx] = (int*)nowAddrGPU[device_idx];
+		CUDA_CALL(cudaMemcpyAsync(queryLengthGPU[device_idx], queryTraLength, sizeof(int)*queryTrajNum, cudaMemcpyHostToDevice, defaultStream[device_idx]));
+		nowAddrGPU[device_idx] = (void*)((int*)nowAddrGPU[device_idx] + queryTrajNum);
+	}
+	//----------------------------------------------------
+
+	/*
+	 *
+	// 单GPU版本备份
+	//-----------------------------------------------
+	int totalQueryTrajLength = 0;
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		totalQueryTrajLength += qTra[qID].length;
+	}
+	//查询轨迹信息的准备：
+	//保存查询的轨迹
+	SPoint* allQueryTra = (SPoint*)malloc(sizeof(SPoint) * totalQueryTrajLength);
+	//保存在allQueryTra中各个轨迹的offset（起始地址）
+	int* allQueryTraOffset = new int[queryTrajNum];
+	SPoint* queryTra = allQueryTra;
+	SPoint* queryTraGPU = (SPoint*)baseAddrGPU;
+	//这个才是保存所有queryTra的基址
+	SPoint* queryTraGPUBase = queryTraGPU;
+	int* queryTraLength = new int[queryTrajNum];
+	allQueryTraOffset[0] = 0;
+	printf("queryTrajNum:%d", queryTrajNum);
+	printf("totalQueryTrajLength:%d", totalQueryTrajLength);
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		for (int i = 0; i <= qTra[qID].length - 1; i++)
+		{
+			queryTra[i].x = qTra[qID].points[i].lon;
+			queryTra[i].y = qTra[qID].points[i].lat;
+			queryTra[i].tID = qTra[qID].tid;
+		}
+		CUDA_CALL(cudaMemcpyAsync(queryTraGPU, queryTra, sizeof(SPoint)*qTra[qID].length, cudaMemcpyHostToDevice, defaultStream));
+		queryTraLength[qID] = qTra[qID].length;
+		queryTraGPU = queryTraGPU + qTra[qID].length;
+		queryTra += qTra[qID].length;
+		if (qID != queryTrajNum - 1)
+			allQueryTraOffset[qID + 1] = allQueryTraOffset[qID] + qTra[qID].length;
+	}
+	nowAddrGPU = queryTraGPU;
+	// queryTraOffsetGPU是保存queryTra中offset的基地址
+	int* queryTraOffsetGPU = (int*)nowAddrGPU;
+	CUDA_CALL(cudaMemcpyAsync(queryTraOffsetGPU, allQueryTraOffset, sizeof(int)*queryTrajNum, cudaMemcpyHostToDevice, defaultStream));
+	nowAddrGPU = (void*)((int*)nowAddrGPU + queryTrajNum);
+
+	//构建queryLength
+	int* queryLengthGPU = (int*)nowAddrGPU;
+	CUDA_CALL(cudaMemcpyAsync(queryLengthGPU, queryTraLength, sizeof(int)*queryTrajNum, cudaMemcpyHostToDevice, defaultStream));
+	nowAddrGPU = (void*)((int*)nowAddrGPU + queryTrajNum);
+	//----------------------------------------------------
+	//单GPU版本备份
+	*/
+
+
+	//tt.stop();
+	//cout << "Part3.0.1 time:" << tt.elapse() << endl;
+	//tt.start();
+	//第一步：循环，剪枝
+	int* worstNow = new int[queryTrajNum];
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		worstNow[qID] = 9999999;
+	}
+	
+	bool* isFinished = new bool[queryTrajNum];
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		isFinished[qID] = FALSE;
+	}
+	bool isAllFinished = FALSE;
+
+	int* candidateTraLength[2];
+	SPoint* candidateTra[2];
+	TaskInfoTableForSimilarity* taskInfoTable[2];
+	OffsetTable* candidateTrajOffsetTable[2];
+	SPoint** candidateOffsets[2];
+	int candidateTrajNum[2] = {0};
+	map<int, void*> traID_baseAddr[2];
+	SPoint* candidateTraGPU[2];
+	int** candidateTrajID = new int*[queryTrajNum];
+	for (int i = 0; i <= queryTrajNum - 1; i++)
+		candidateTrajID[i] = new int[k];
+
+	for (int device_idx = 0; device_idx <= 1; device_idx++)
+	{
+		CUDA_CALL(cudaSetDevice(device_idx));
+		candidateTra[device_idx] = (SPoint*)malloc(sizeof(SPoint) * k * queryTrajNum * MAXLENGTH);
+		taskInfoTable[device_idx] = (TaskInfoTableForSimilarity *)malloc(sizeof(TaskInfoTableForSimilarity) * k * queryTrajNum);
+		candidateTrajOffsetTable[device_idx] = (OffsetTable*)malloc(sizeof(OffsetTable) * k * queryTrajNum);
+		candidateOffsets[device_idx] = (SPoint**)malloc(sizeof(SPoint*) * k * queryTrajNum);
+		candidateTraGPU[device_idx] = (SPoint*)nowAddrGPU[device_idx];
+		candidateTraLength[device_idx] = (int*)malloc(sizeof(int) * k * queryTrajNum);
+	}
+
+	/*
+	//单GPU版本备份
+
+	SPoint* candidateTra = (SPoint*)malloc(sizeof(SPoint) * k * queryTrajNum * MAXLENGTH);
+
+	//保存qid、candID和在candidateTran中的offset的对应关系
+	TaskInfoTableForSimilarity* taskInfoTable = (TaskInfoTableForSimilarity *)malloc(sizeof(TaskInfoTableForSimilarity) * k * queryTrajNum);
+	//轨迹唯一，保存在id下轨迹的id和baseAddr （有必要保存轨迹的id吗？）
+	OffsetTable* candidateTrajOffsetTable = (OffsetTable*)malloc(sizeof(OffsetTable) * k * queryTrajNum);
+	//保存candidateOffset的基地址们
+	SPoint** candidateOffsets = (SPoint**)malloc(sizeof(SPoint*) * k * queryTrajNum);
+	int candidateTrajNum = 0;
+	// traID和在candidateTrajOffsetTable中的idx的对应关系map，主要用于判断轨迹是否已经复制到gpu
+	map<int, void*> traID_baseAddr;
+	SPoint* candidateTraGPU = (SPoint*)nowAddrGPU;
+	
+	//单GPU版本备份
+	*/
+
+
+	//tt.stop();
+	//cout << "Part3.0.2 time:" << tt.elapse() << endl;
+
+	while (!isAllFinished)
+	{
+		//tt.start();
+		//还有待计算的候选轨迹的总数目，相当于任务数目
+		int validCandTrajNum[2] = { 0 };
+		//目前还没有计算完成的查询轨迹的数目
+		int validQueryTraNum = queryTrajNum;
+		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+		{
+			if (isFinished[qID])
+				validQueryTraNum--;
+		}
+		// 在本轮计算内的第几个轨迹
+		int validQueryIdx = 0;
+		int validQueryIdxGPU[2] = { 0 };
+		int queryEachGPU[2];
+		queryEachGPU[0] = validQueryTraNum / 2;
+		queryEachGPU[1] = validQueryTraNum - queryEachGPU[0];
+
+		// 线性地址
+		SPoint* tempPtr[2];
+		for (int device_idx = 0; device_idx <= 1; device_idx++)
+			tempPtr[device_idx] = candidateTra[device_idx];
+		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+		{
+			int device_idx = 0;
+			if (validQueryIdx < queryEachGPU[0])
+				device_idx = 0;
+			else
+				device_idx = 1;
+
+			if (!isFinished[qID])
+			{
+				//提取topk作为待查轨迹
+				for (int i = 0; i <= k - 1; i++)
+				{
+					candidateTrajID[qID][i] = queryQueue[qID].top().traID;
+					//printf("%d,%d ", queryQueue[qID].top().traID, queryQueue[qID].top().FD);
+					//printf("%d,%d\t", queryQueue[qID].top().traID,queryQueue[qID].top().FD);
+					//if ((qID == 27) && queryQueue[qID].size()==10)
+					//	printf("%d..", queryQueue[qID].size());
+					queryQueue[qID].pop();
+					validCandTrajNum[device_idx]++;
+				}
+				for (int i = 0; i <= k - 1; i++)
+				{
+					int CandTrajID = candidateTrajID[qID][i];
+					map<int, void*>::iterator traID_baseAddr_ITER = traID_baseAddr[device_idx].find(CandTrajID);
+					// 如果轨迹还没有保存在GPU中
+					if (traID_baseAddr_ITER == traID_baseAddr[device_idx].end())
+					{
+						int pointsNumInThisCand = 0;
+						SPoint* thisTrajAddr = tempPtr[device_idx];
+						for (int subID = 0; subID <= this->cellBasedTrajectory[candidateTrajID[qID][i]].length - 1; subID++)
+						{
+							int idxInAllPoints = this->cellBasedTrajectory[candidateTrajID[qID][i]].startIdx[subID];
+							memcpy(tempPtr[device_idx], &this->allPoints[idxInAllPoints], sizeof(SPoint) * this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID]);
+							tempPtr[device_idx] += this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID];
+							pointsNumInThisCand += this->cellBasedTrajectory[candidateTrajID[qID][i]].numOfPointInCell[subID];
+						}
+						// 把这条轨迹提取到candidateTraGPU中
+						CUDA_CALL(cudaMemcpyAsync(candidateTraGPU[device_idx], thisTrajAddr, pointsNumInThisCand*sizeof(SPoint), cudaMemcpyHostToDevice, defaultStream[device_idx]));
+						traID_baseAddr[device_idx][candidateTrajID[qID][i]] = candidateTraGPU[device_idx];
+						//仅保存要计算的query的candidateTraLength
+						candidateTraLength[device_idx][k * validQueryIdxGPU[device_idx] + i] = this->cellBasedTrajectory[candidateTrajID[qID][i]].trajLength;
+						//仅保存要计算的query的offset
+						taskInfoTable[device_idx][k * validQueryIdxGPU[device_idx] + i].qID = qID;
+						taskInfoTable[device_idx][k * validQueryIdxGPU[device_idx] + i].candTrajID = CandTrajID;
+						// 保存轨迹对应的addr
+						candidateTrajOffsetTable[device_idx][k * validQueryIdxGPU[device_idx] + i].objectId = candidateTrajID[qID][i];
+						candidateTrajOffsetTable[device_idx][k * validQueryIdxGPU[device_idx] + i].addr = candidateTraGPU[device_idx];
+						candidateOffsets[device_idx][k * validQueryIdxGPU[device_idx] + i] = candidateTraGPU[device_idx];
+						//地址往前移动，便于下一次复制
+						candidateTraGPU[device_idx] = (candidateTraGPU[device_idx] + pointsNumInThisCand);
+						// nowAddrGPU 始终是指向下一个空闲的GPU地址
+						nowAddrGPU[device_idx] = (void*)candidateTraGPU[device_idx];
+					}
+					// 如果该轨迹已经复制进了gpu里面，那么只需要按照该轨迹id更新表就行了
+					else
+					{
+						void* baseAddrGPU = traID_baseAddr_ITER->second;
+						//仅保存要计算的query的candidateTraLength
+						candidateTraLength[device_idx][k * validQueryIdxGPU[device_idx] + i] = this->cellBasedTrajectory[CandTrajID].trajLength;
+						//仅保存要计算的query的offset
+						taskInfoTable[device_idx][k * validQueryIdxGPU[device_idx] + i].qID = qID;
+						taskInfoTable[device_idx][k * validQueryIdxGPU[device_idx] + i].candTrajID = CandTrajID;
+						// 保存轨迹对应的addr
+						candidateTrajOffsetTable[device_idx][k * validQueryIdxGPU[device_idx] + i].objectId = CandTrajID;
+						candidateTrajOffsetTable[device_idx][k * validQueryIdxGPU[device_idx] + i].addr = baseAddrGPU;
+						candidateOffsets[device_idx][k * validQueryIdxGPU[device_idx] + i] = (SPoint*)baseAddrGPU;
+					}
+				}
+				validQueryIdx++;
+				validQueryIdxGPU[device_idx]++;
+				//最终，需要被计算的EDR有validQueryIdx * k 个
+				// 如果正确，validQueryIdx * k 应当等于validCandTrajNum
+				//如果正确，validQueryIdx应当等于validQueryNum
+				//如果正确，validQueryIdxGPU里面所有数加起来应该等于validQueryIdx
+			}
+		}
+		//tt.stop();
+		//cout << "Part3.1 time:" << tt.elapse() << endl;
+		//tt.start();
+		//构建candidateTraj完成，构建candidateTrajLength
+
+		int* candidateTraLengthGPU[2];
+		TaskInfoTableForSimilarity* taskInfoTableGPU[2];
+		SPoint** candidateOffsetsGPU[2];
+		int* resultReturnedGPU[2];
+		int* resultReturned = new int[queryTrajNum * k];
+		for (int device_idx = 0; device_idx <= 1; device_idx++) {
+			candidateTraLengthGPU[device_idx] = (int*)whileAddrGPU[device_idx];
+			CUDA_CALL(cudaMemcpyAsync(candidateTraLengthGPU[device_idx], candidateTraLength[device_idx], sizeof(int)*validCandTrajNum[device_idx], cudaMemcpyHostToDevice, defaultStream[device_idx]));
+			// nowAddrGPU 始终是指向下一个空闲的GPU地址
+			whileAddrGPU[device_idx] = (void*)((int*)whileAddrGPU[device_idx] + validCandTrajNum[device_idx]);
+
+			//构建TaskInfoTable
+			taskInfoTableGPU[device_idx] = (TaskInfoTableForSimilarity*)whileAddrGPU[device_idx];
+			CUDA_CALL(cudaMemcpyAsync(taskInfoTableGPU[device_idx], taskInfoTable[device_idx], sizeof(TaskInfoTableForSimilarity)*validCandTrajNum[device_idx], cudaMemcpyHostToDevice, defaultStream[device_idx]));
+			// nowAddrGPU 始终是指向下一个空闲的GPU地址
+			whileAddrGPU[device_idx] = (void*)((TaskInfoTableForSimilarity*)whileAddrGPU[device_idx] + validCandTrajNum[device_idx]);
+
+			//复制candidate的地址到gpu中
+			candidateOffsetsGPU[device_idx]= (SPoint**)whileAddrGPU[device_idx];
+			CUDA_CALL(cudaMemcpyAsync(candidateOffsetsGPU[device_idx], candidateOffsets[device_idx], sizeof(SPoint*)*validCandTrajNum[device_idx], cudaMemcpyHostToDevice, defaultStream[device_idx]));
+			// nowAddrGPU 始终是指向下一个空闲的GPU地址
+			whileAddrGPU[device_idx] = (void*)((SPoint**)whileAddrGPU[device_idx] + validCandTrajNum[device_idx]);
+
+			//构建candidateTraj和candidateLength完成，准备并行Similarity search
+			//只需要查询isFinished为false的queryTra，至于是哪些可以直接看offsetTableCandidateTra
+			
+			resultReturnedGPU[device_idx] = (int*)whileAddrGPU[device_idx];
+			whileAddrGPU[device_idx] = (void*)((int*)whileAddrGPU[device_idx] + k * queryTrajNum);
+		}
+		//CUDA_CALL(cudaMalloc((void**)resultReturnedGPU, sizeof(int)*k*queryTrajNum));
+
+
+		//tt.stop();
+		//cout << "Part3.2 time:" << tt.elapse() << endl;
+		//tt.start();
+		//如果上面的分配没有错，开始计算EDR
+		if (validQueryTraNum * k == (validCandTrajNum[0]+ validCandTrajNum[1]))
+		{
+			for (int device_idx = 0; device_idx <= 1; device_idx++)
+				EDRDistance_Batch_Handler(validCandTrajNum[device_idx], taskInfoTableGPU[device_idx], queryTraGPUBase[device_idx], queryTraOffsetGPU[device_idx], candidateOffsetsGPU[device_idx], queryLengthGPU[device_idx], candidateTraLengthGPU[device_idx], resultReturnedGPU[device_idx], &defaultStream[device_idx]);
+			CUDA_CALL(cudaMemcpyAsync(resultReturned, resultReturnedGPU[0], sizeof(int)*k*queryEachGPU[0], cudaMemcpyDeviceToHost, defaultStream[0]));
+			CUDA_CALL(cudaMemcpyAsync(resultReturned + k*queryEachGPU[0], resultReturnedGPU[1], sizeof(int)*k*queryEachGPU[1], cudaMemcpyDeviceToHost, defaultStream[1]));
+
+		}
+		else
+		{
+			printf("error in line 1007\n");
+		}
+
+		//tt.stop();
+		//cout << "Part3.3 time:" << tt.elapse() << endl;
+		//tt.start();
+		//并行计算结束后，更新worstNow以及写入结果
+		for (int idx = 0; idx <= k * validQueryTraNum - 1; idx++)
+		{
+			int device_idx = 0;
+			if (idx / k < queryEachGPU[0])
+				device_idx = 0;
+			else
+				device_idx = 1;
+			int qID = taskInfoTable[device_idx][idx].qID;
+			int i = idx % k;
+			if (numElemInCalculatedQueue[qID] < kValue)
+			{
+				//直接往PQ里加
+				FDwithID fd;
+				fd.traID = candidateTrajID[qID][i];
+				fd.FD = resultReturned[idx];
+				EDRCalculated[qID].push(fd);
+				numElemInCalculatedQueue[qID]++;
+			}
+			else
+			{
+				//看一下是否比PQ里更好，如果是弹出一个差的，换进去一个好的；否则不动优先队列也不更新worstNow。
+				int worstInPQ = EDRCalculated[qID].top().FD;
+				if (resultReturned[i] < worstInPQ)
+				{
+					EDRCalculated[qID].pop();
+					FDwithID fd;
+					fd.traID = candidateTrajID[qID][i];
+					fd.FD = resultReturned[idx];
+					EDRCalculated[qID].push(fd);
+				}
+			}
+		}
+		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+		{
+			worstNow[qID] = EDRCalculated[qID].top().FD;
+			if ((queryQueue[qID].empty()) || (worstNow[qID] <= queryQueue[qID].top().FD))
+			{
+				isFinished[qID] = TRUE;
+			}
+		}
+
+		bool temp = TRUE;
+		for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+		{
+			temp = temp && isFinished[qID];
+		}
+		isAllFinished = temp;
+		delete[] resultReturned;
+		//GPU指针回到while开始的地方
+		for (int device_idx = 0; device_idx <= 1; device_idx++)
+			whileAddrGPU[device_idx] = whileAddrGPUBase[device_idx];
+		//tt.stop();
+		//cout << "Part3.4 time:" << tt.elapse() << endl;
+	}
+
+
+	timer.stop();
+	cout << "Part3 time:" << timer.elapse() << endl;
+
+	//输出结果
+	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
+	{
+		for (int i = 0; i <= kValue - 1; i++)
+		{
+			topKSimilarityTraj[qID * kValue + i] = EDRCalculated[qID].top().traID;
+			EDRCalculated[qID].pop();
+		}
+	}
+
+	for (int i = 0; i <= queryTrajNum - 1; i++)
+		delete[] candidateTrajID[i];
+	for (int device_idx = 0; device_idx <= 1; device_idx++) {
+		free(taskInfoTable[device_idx]);
+		free(candidateTrajOffsetTable[device_idx]);
+		free(candidateOffsets[device_idx]);
+		free(candidateTra[device_idx]);
+		free(candidateTraLength[device_idx]);
+		cudaStreamDestroy(defaultStream[device_idx]);
+		CUDA_CALL(cudaFree(baseAddrSimi[device_idx]));
+		CUDA_CALL(cudaFree(whileAddrGPU[device_idx]));
+	}
+	
+	delete[] candidateTrajID;
+	delete[] isFinished;
+	delete[] worstNow;
+	free(allQueryTra);
+	delete[] allQueryTraOffset;
+	delete[] EDRCalculated;
+	delete[] numElemInCalculatedQueue;
+	delete[] freqVectors;
+	delete[] queryQueue;
+	delete[] queryTraLength;
+	
+	
+	return 0;
+}
+
 
 //
 //int Grid::SimilarityQuery(Trajectory & qTra, Trajectory **candTra, const int candSize, float * EDRdistance)
