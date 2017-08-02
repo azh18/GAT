@@ -44,7 +44,8 @@ OBJECTS = \
 	QueryResult.o\
 	SamplePoint.o\
 	Trajectory.o\
-	SystemTest.o
+	SystemTest.o\
+	STIG.o
 
 
 
