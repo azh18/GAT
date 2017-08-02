@@ -1547,7 +1547,7 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 	void* whileAddrGPUBase[2];
 	void* nowAddrGPU[2] = {NULL};;
 	int num_devices;
-	cudaStream_t defaultStream[2];
+	cudaStream_t defaultStream[2];	
 	CUDA_CALL(cudaGetDeviceCount(&num_devices));
 	//num_devices = 2;
 	printf("num of GPU:%d\n",num_devices);
@@ -2006,10 +2006,17 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 		for (int idx = 0; idx <= k * validQueryTraNum - 1; idx++)
 		{
 			int device_idx = 0;
+			int idxInTaskInfoTable = 0;
 			if (idx / k < queryEachGPU[0])
+			{
 				device_idx = 0;
+				idxInTaskInfoTable = idx;
+			}
 			else
+			{
 				device_idx = 1;
+				idxInTaskInfoTable = idx - k*queryEachGPU[0];
+			}
 			int qID = taskInfoTable[device_idx][idx].qID;
 			int i = idx % k;
 			if (numElemInCalculatedQueue[qID] < kValue)
