@@ -1549,6 +1549,8 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 	int num_devices;
 	cudaStream_t defaultStream[2];
 	CUDA_CALL(cudaGetDeviceCount(&num_devices));
+	//num_devices = 2;
+	printf("num of GPU:%d\n",num_devices);
 	for (int device_idx = 0; device_idx <= num_devices - 1; device_idx++)
 	{
 		CUDA_CALL(cudaSetDevice(device_idx));

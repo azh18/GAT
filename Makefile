@@ -16,7 +16,7 @@ CC = g++
 
 # Define the Cuda compile flags
 #
-CUDAFLAGS= --gpu-architecture=compute_35 --gpu-code=compute_35 -m64 -use_fast_math -I ./header -std=c++11 -lineinfo --use-local-env -ccbin "g++" -cudart static --cl-version 2015
+CUDAFLAGS= --gpu-architecture=compute_37 --gpu-code=compute_37 -m64 -use_fast_math -I ./header -std=c++11 -lineinfo --use-local-env -ccbin "g++" -cudart static --cl-version 2015
 
 CUDACC= nvcc
 
