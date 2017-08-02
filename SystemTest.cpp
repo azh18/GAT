@@ -36,6 +36,7 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	cout << "CPU Time:" << timer.elapse() << "ms" << endl;
 
 	printf("single GPU range query #query=%d:\n", rangeQueryNum);
+	CUDA_CALL(cudaSetDevice(0));
 	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)512 * 1024 * 1024));
 	void *allocatedGPUMem = g->baseAddrRange[0];
 	CUDA_CALL(cudaMalloc((void**)&g->stateTableGPU[0], 512 * 1024 * 1024));
@@ -46,10 +47,10 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaFree(allocatedGPUMem));
 	CUDA_CALL(cudaFree(g->stateTableGPU[0]));
 
-	/*
+	
 	printf("multi-GPU range query #query=%d:\n", rangeQueryNum);
 	g->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
-	*/
+	
 
 	return 0;
 }
@@ -112,7 +113,7 @@ int SystemTest::similarityQueryTest(int similarityScale, int similarityKValue)
 
 int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 {
-	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
+	CUDA_CALL(cudaSetDevice(0));
 	this->rangeQueryMBB = rangeQueryMBB;
 	this->rangeQueryNum = rangeQueryNum;
 	CPURangeQueryResult* resultTable = NULL;
