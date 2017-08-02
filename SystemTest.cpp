@@ -1,6 +1,7 @@
 #include "SystemTest.h"
 
 
+using namespace std;
 
 SystemTest::SystemTest()
 {
@@ -27,20 +28,28 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	int* resultSize = NULL;
 	for (int i = 0; i <= 4999; i++)
 		mbbArray[i] = rangeQueryMBB;
+	printf("single-core CPU range query #query=%d:\n", rangeQueryNum);
 	MyTimer timer;
 	timer.start();
 	g->rangeQueryBatch(mbbArray, rangeQueryNum, resultTable, resultSize);
 	timer.stop();
 	cout << "CPU Time:" << timer.elapse() << "ms" << endl;
 
-
-	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 512 * 1024 * 1024));
-	void* baseAddr = baseAddrGPU;
+	printf("single GPU range query #query=%d:\n", rangeQueryNum);
+	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)2048 * 1024 * 1024));
+	void *allocatedGPUMem = g->baseAddrRange[0];
+	CUDA_CALL(cudaMalloc((void**)&g->stateTableGPU[0], 512 * 1024 * 1024));
 	timer.start();
-	g->rangeQueryBatchGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
+	g->rangeQueryBatchGPU(mbbArray, rangeQueryNum, resultTable, resultSize, 0);
 	timer.stop();
-	cout << "GPU Time:" << timer.elapse() << "ms" << endl;
-	CUDA_CALL(cudaFree(baseAddr));
+	cout << "Single GPU Time:" << timer.elapse() << "ms" << endl;
+	CUDA_CALL(cudaFree(allocatedGPUMem));
+	CUDA_CALL(cudaFree(g->stateTableGPU[0]));
+
+
+	printf("multi-GPU range query #query=%d:\n", rangeQueryNum);
+	g->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
+
 	return 0;
 }
 

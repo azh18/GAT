@@ -308,7 +308,7 @@ int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTa
 	return 0;
 }
 
-bool STIG::intersectBlock(int amin,int amax,int bmin,int bmax)
+bool STIG::intersectBlock(float amin, float amax, float bmin, float bmax)
 {
 	if (amax < bmin)
 		return FALSE;

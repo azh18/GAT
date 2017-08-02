@@ -2,6 +2,8 @@
 
 extern Trajectory* tradb;
 extern void* baseAddrGPU;
+using namespace std;
+
 #ifdef WIN32
 MyTimer timer;
 #else
@@ -15,7 +17,6 @@ Grid::Grid()
 	cell_size = 0;
 	cellNum_axis = 0;
 	cellPtr = NULL;
-	QuadtreeNode* root;
 	allPoints = NULL;
 	allPointsPtrGPU = NULL;
 }
@@ -391,16 +392,16 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 		}
 	}
 
-	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
-	{
-		for (int traID = 1; traID <= (this->trajNum); traID++)
-		{
-			if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
-			{
-				out << "job " << jobID << "find" << traID << endl;
-			}
-		}
-	}
+	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
+	//{
+	//	for (int traID = 1; traID <= (this->trajNum); traID++)
+	//	{
+	//		if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
+	//		{
+	//			out << "job " << jobID << "find" << traID << endl;
+	//		}
+	//	}
+	//}
 
 	out.close();
 	return 0;
@@ -427,28 +428,28 @@ int Grid::findMatchNodeInQuadTree(QuadtreeNode* node, MBB& bound, vector<Quadtre
 }
 
 
-int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize)
+int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize, int device_idx)
 {
 	// 分配GPU内存
 	//MyTimer timer;
 	// 参数随便设置的，可以再调
 	//timer.start();
-
+	CUDA_CALL(cudaSetDevice(device_idx));
 	RangeQueryStateTable* stateTableAllocate = (RangeQueryStateTable*)malloc(sizeof(RangeQueryStateTable) * 1000000);
-	this->stateTableRange = stateTableAllocate;
-	this->stateTableLength = 0;
-	this->nodeAddrTableLength = 0;
+	this->stateTableRange[device_idx] = stateTableAllocate;
+	this->stateTableLength[device_idx] = 0;
+	this->nodeAddrTableLength[device_idx] = 0;
 	// for each query, generate the nodes:
 	cudaStream_t stream;
 	cudaStreamCreate(&stream);
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
-		findMatchNodeInQuadTreeGPU(root, bounds[i], NULL, stream, i);
+		findMatchNodeInQuadTreeGPU(root, bounds[i], NULL, stream, i, device_idx);
 	}
 	//printf("StateTableLength:%d",this->stateTableLength);
 	//stateTable中点的数目的最大值
 	int maxPointNum = 0;
-	for (int i = 0; i <= stateTableLength - 1; i++)
+	for (int i = 0; i <= this->stateTableLength[device_idx] - 1; i++)
 	{
 		if (stateTableAllocate[i].candidatePointNum > maxPointNum)
 			maxPointNum = stateTableAllocate[i].candidatePointNum;
@@ -459,9 +460,7 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//cout << "Time 1:" << timer.elapse() << "ms" << endl;
 
 	//timer.start();
-	RangeQueryStateTable* stateTableGPU = NULL;
-	CUDA_CALL(cudaMalloc((void**)&stateTableGPU, sizeof(RangeQueryStateTable)*this->stateTableLength));
-	CUDA_CALL(cudaMemcpyAsync(stateTableGPU, stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength,
+	CUDA_CALL(cudaMemcpyAsync(this->stateTableGPU[device_idx], stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength[device_idx],
 		cudaMemcpyHostToDevice, stream));
 	//传递完成，开始调用kernel查询
 	uint8_t* resultsReturned = (uint8_t*)malloc(sizeof(uint8_t) * (this->trajNum + 1) * rangeNum);
@@ -470,18 +469,18 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//cout << "Time 2:" << timer.elapse() << "ms" << endl;
 
 	//timer.start();
-	cudaRangeQueryTestHandler(stateTableGPU, stateTableLength, resultsReturned, this->trajNum + 1, rangeNum, stream);
-	ofstream fp("queryResult(GTS).txt", ios_base::out);
-	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
-	{
-		for (int traID = 0; traID <= this->trajNum; traID++)
-		{
-			if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
-			{
-				fp << "job " << jobID << "find" << traID << endl;
-			}
-		}
-	}
+	cudaRangeQueryTestHandler((RangeQueryStateTable*)this->stateTableGPU[device_idx], this->stateTableLength[device_idx], resultsReturned, this->trajNum + 1, rangeNum, stream);
+	//ofstream fp("queryResult(GTS).txt", ios_base::out);
+	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
+	//{
+	//	for (int traID = 0; traID <= this->trajNum; traID++)
+	//	{
+	//		if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
+	//		{
+	//			fp << "job " << jobID << "find" << traID << endl;
+	//		}
+	//	}
+	//}
 	//for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);
@@ -501,13 +500,47 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//	}
 	//}
 	//查询结束，善后，清空stateTable，清空gpu等
-	CUDA_CALL(cudaFree(stateTableGPU));
-	this->stateTableRange = stateTableAllocate;
+	this->stateTableRange[device_idx] = stateTableAllocate;
+	free(stateTableAllocate);
 	cudaStreamDestroy(stream);
 	return 0;
 }
 
-int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode* node, MBB& bound, vector<QuadtreeNode*>* cells, cudaStream_t stream, int queryID)
+
+int Grid::rangeQueryBatchMultiGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize)
+{
+	MyTimer timer;
+	int device_num = 2;
+	vector<thread> threads_RQ;
+	int rangeNumGPU[2];
+	rangeNumGPU[0] = rangeNum / 2;
+	rangeNumGPU[1] = rangeNum - rangeNumGPU[0];
+	int startIdx[2];
+	startIdx[0] = 0;
+	startIdx[1] = rangeNumGPU[0];
+	void* allocatedGPUMem[2] = { NULL };
+	for (int device_idx=0; device_idx <= device_num - 1; device_idx++)
+	{
+		// this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
+		CUDA_CALL(cudaSetDevice(device_idx));
+		CUDA_CALL(cudaMalloc((void**)&this->baseAddrRange[device_idx], (long long int)2048 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], 512 * 1024 * 1024));
+		allocatedGPUMem[device_idx] = this->baseAddrRange[device_idx];
+		threads_RQ.push_back(thread(std::mem_fn(&Grid::rangeQueryBatchGPU), this, &bounds[startIdx[device_idx
+		]], rangeNumGPU[device_idx], ResultTable, resultSetSize, device_idx));
+	}
+	timer.start();
+	std::for_each(threads_RQ.begin(), threads_RQ.end(), std::mem_fn(&std::thread::join));
+	timer.stop();
+	cout << "Dual GPU Time:" << timer.elapse() << "ms" << endl;
+	for (int device_idx = 0; device_idx <= device_num - 1; device_idx++)
+	{
+		CUDA_CALL(cudaFree(allocatedGPUMem[device_idx]));
+		CUDA_CALL(cudaFree(this->stateTableGPU[device_idx]));
+	}
+}
+
+int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode* node, MBB& bound, vector<QuadtreeNode*>* cells, cudaStream_t stream, int queryID, int device_idx)
 {
 	int totalLevel = int(log2(this->cellnum) / log2(4));
 	if (node->isLeaf)
@@ -516,42 +549,43 @@ int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode* node, MBB& bound, vector<Quad
 		int startIdx = this->cellPtr[startCellID].pointRangeStart;
 		int pointNum = node->numPoints;
 		//如果gpu内存中没有该node的信息
-		if (this->nodeAddrTable.find(startCellID) == this->nodeAddrTable.end())
+		if (this->nodeAddrTable[device_idx].find(startCellID) == this->nodeAddrTable[device_idx].end())
 		{
-			CUDA_CALL(cudaMemcpyAsync(baseAddrGPU, &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
-			this->stateTableRange->ptr = baseAddrGPU;
-			this->nodeAddrTable.insert(pair<int, void*>(startCellID, baseAddrGPU));
-			baseAddrGPU = (void*)((char*)baseAddrGPU + pointNum * sizeof(SPoint));
+			CUDA_CALL(cudaMemcpyAsync(this->baseAddrRange[device_idx], &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
+			this->stateTableRange[device_idx]->ptr = this->baseAddrRange[device_idx];
+			this->nodeAddrTable[device_idx].insert(pair<int, void*>(startCellID, this->baseAddrRange[device_idx]));
+			this->baseAddrRange[device_idx] = (void*)((char*)this->baseAddrRange[device_idx] + pointNum * sizeof(SPoint));
 		}
 		//如果有，不再复制，直接用
 		else
 		{
-			this->stateTableRange->ptr = this->nodeAddrTable.find(startCellID)->second;
+			this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx].find(startCellID)->second;
 		}
 
-		this->stateTableRange->xmin = bound.xmin;
-		this->stateTableRange->xmax = bound.xmax;
-		this->stateTableRange->ymin = bound.ymin;
-		this->stateTableRange->ymax = bound.ymax;
-		this->stateTableRange->candidatePointNum = pointNum;
-		this->stateTableRange->startIdxInAllPoints = startIdx;
-		this->stateTableRange->queryID = queryID;
-		this->stateTableRange = this->stateTableRange + 1;
-		this->stateTableLength = this->stateTableLength + 1;
+		this->stateTableRange[device_idx]->xmin = bound.xmin;
+		this->stateTableRange[device_idx]->xmax = bound.xmax;
+		this->stateTableRange[device_idx]->ymin = bound.ymin;
+		this->stateTableRange[device_idx]->ymax = bound.ymax;
+		this->stateTableRange[device_idx]->candidatePointNum = pointNum;
+		this->stateTableRange[device_idx]->startIdxInAllPoints = startIdx;
+		this->stateTableRange[device_idx]->queryID = queryID;
+		this->stateTableRange[device_idx] = this->stateTableRange[device_idx] + 1;
+		this->stateTableLength[device_idx] = this->stateTableLength[device_idx] + 1;
 	}
 	else
 	{
 		if (bound.intersect(node->UL->mbb))
-			findMatchNodeInQuadTreeGPU(node->UL, bound, cells, stream, queryID);
+			findMatchNodeInQuadTreeGPU(node->UL, bound, cells, stream, queryID, device_idx);
 		if (bound.intersect(node->UR->mbb))
-			findMatchNodeInQuadTreeGPU(node->UR, bound, cells, stream, queryID);
+			findMatchNodeInQuadTreeGPU(node->UR, bound, cells, stream, queryID, device_idx);
 		if (bound.intersect(node->DL->mbb))
-			findMatchNodeInQuadTreeGPU(node->DL, bound, cells, stream, queryID);
+			findMatchNodeInQuadTreeGPU(node->DL, bound, cells, stream, queryID, device_idx);
 		if (bound.intersect(node->DR->mbb))
-			findMatchNodeInQuadTreeGPU(node->DR, bound, cells, stream, queryID);
+			findMatchNodeInQuadTreeGPU(node->DR, bound, cells, stream, queryID, device_idx);
 	}
 	return 0;
 }
+
 
 int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimilarityTraj, int kValue)
 {

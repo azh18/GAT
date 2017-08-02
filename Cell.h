@@ -8,7 +8,7 @@
 #include<sstream>
 #include<vector>
 
-using namespace std;
+
 typedef struct subTra {
 	int traID;
 	short startpID;
@@ -26,7 +26,7 @@ public:
 	bool initial(int x, int y, const MBB& val_mbb);
 	int addSubTra(int traID, int startIdx, int endIdx, int numOfPoints);
 	int buildSubTraTable();//读取完所有轨迹之后用数组存储
-	int writeCellToFile(string fileName);
+	int writeCellToFile(std::string fileName);
 	~Cell();
 
 
@@ -43,7 +43,7 @@ public:
 	subTra subTraEntry;//建立cell过程中链表入口（这一点改掉，太浪费内存）
 	subTra* subTraPtr;//当前最新数据指针位置
 	subTra* subTraTable;//转化为数组后数组的入口
-	ofstream fout;//文件接口
+	std::ofstream fout;//文件接口
 
 #ifdef _CELL_BASED_STORAGE
 	//每个cell在point数组中数据的起始和终止位置

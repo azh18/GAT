@@ -1,5 +1,5 @@
 #pragma once
-
+#include "ConstDefine.h"
 #include "Trajectory.h"
 #include "Grid.h"
 #include "MBB.h"

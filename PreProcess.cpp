@@ -10,6 +10,7 @@
 #include<vector>
 #include<cstdlib>
 
+using namespace std;
 
 
 extern int DaysBetween2Date(string date1, string date2);

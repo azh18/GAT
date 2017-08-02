@@ -23,7 +23,7 @@ class InternalNode: public STIGNode
 public:
 	InternalNode();
 	int dim;
-	int medium;
+	float medium;
 	bool leftIsLeaf;
 	bool rightIsLeaf;
 	void* left;
@@ -57,5 +57,5 @@ public:
 	int searchNode(MBB queryMBB, std::vector<STIGBlock> *allCandBlocks, InternalNode* node);
 	int searchNode(MBB queryMBB, std::vector<STIGBlock> *allCandBlocks, LeafNode* node);
 	int rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
-	static bool intersectBlock(int amin, int amax, int bmin, int bmax);
+	static bool intersectBlock(float amin, float amax, float bmin, float bmax);
 };

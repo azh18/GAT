@@ -2,6 +2,7 @@
 #include <queue>
 #include "cudaKernel.h"
 
+using namespace std;
 
 int FVTable::initFVTable(int trajNum,int cellNum)
 {

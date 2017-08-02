@@ -26,7 +26,7 @@ public:
 
 	inline float elapse()
 	{
-		return 1e3*(_stop.QuadPart - _start.QuadPart) / _freq.QuadPart;
+		return float(1e3*(_stop.QuadPart - _start.QuadPart) / _freq.QuadPart);
 	}
 
 	inline long long ticks()

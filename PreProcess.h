@@ -2,11 +2,10 @@
 #define PREPROCESS_H
 #include<fstream>
 #include "ConstDefine.h"
-using namespace std;
 
 typedef struct VLLT
 {
-    string vid;
+	std::string vid;
     float lon;
     float lat;
     int time;
@@ -21,17 +20,17 @@ struct tidLinkTable
 class PreProcess
 {
     public:
-        ifstream fin;
-        ofstream fout;
+		std::ifstream fin;
+        std::ofstream fout;
         int maxTid = 0; //当前最大的轨迹编号
         PreProcess();
-        PreProcess(string fileName,string outFileName);
+        PreProcess(std::string fileName, std::string outFileName);
 		bool updateMapBound(float lon,float lat);
 		bool validPoint(float lon, float lat);
         virtual ~PreProcess();
-        VLLT getTraInfoFromString(string s);
-		bool writeTraDataToFile(string outFileName);
-		bool readTraFromFormatedFile(string outFileName);
+        VLLT getTraInfoFromString(std::string s);
+		bool writeTraDataToFile(std::string outFileName);
+		bool readTraFromFormatedFile(std::string outFileName);
 		float xmin, xmax, ymin, ymax;
 
 
