@@ -1554,8 +1554,8 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 	for (int device_idx = 0; device_idx <= num_devices - 1; device_idx++)
 	{
 		CUDA_CALL(cudaSetDevice(device_idx));
-		CUDA_CALL(cudaMalloc((void**)(&baseAddrSimi[device_idx]), 768 * 1024 * 1024));
-		CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU[device_idx]), 256 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)(&baseAddrSimi[device_idx]), (long long int)2048 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU[device_idx]), (long long int)2048 * 1024 * 1024));
 		whileAddrGPUBase[device_idx] = whileAddrGPU[device_idx];
 		nowAddrGPU[device_idx] = baseAddrSimi[device_idx];
 		cudaStreamCreate(&defaultStream[device_idx]);
@@ -1988,8 +1988,12 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 		//如果上面的分配没有错，开始计算EDR
 		if (validQueryTraNum * k == (validCandTrajNum[0]+ validCandTrajNum[1]))
 		{
-			for (int device_idx = 0; device_idx <= 1; device_idx++)
+			for (int device_idx = 0; device_idx <= 1; device_idx++){
+				CUDA_CALL(cudaSetDevice(device_idx));
+				if(validCandTrajNum[device_idx]==0)
+					continue;
 				EDRDistance_Batch_Handler(validCandTrajNum[device_idx], taskInfoTableGPU[device_idx], queryTraGPUBase[device_idx], queryTraOffsetGPU[device_idx], candidateOffsetsGPU[device_idx], queryLengthGPU[device_idx], candidateTraLengthGPU[device_idx], resultReturnedGPU[device_idx], &defaultStream[device_idx]);
+			}
 			CUDA_CALL(cudaMemcpyAsync(resultReturned, resultReturnedGPU[0], sizeof(int)*k*queryEachGPU[0], cudaMemcpyDeviceToHost, defaultStream[0]));
 			CUDA_CALL(cudaMemcpyAsync(resultReturned + k*queryEachGPU[0], resultReturnedGPU[1], sizeof(int)*k*queryEachGPU[1], cudaMemcpyDeviceToHost, defaultStream[1]));
 

@@ -57,7 +57,7 @@ int main()
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	STIG *stig = new STIG();
-	stig->initial(1024, 2, tradb, pp.maxTid);
+	//stig->initial(1024, 2, tradb, pp.maxTid);
 
 	//delete[] tradb;
 	int count = 0;
@@ -71,9 +71,9 @@ int main()
 	//int sizetemp = 7;
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 	SystemTest test(tradb, g,stig);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 2);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 2);
-	test.similarityQueryTest(20, 80);
+	//test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 2);
+	//test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 2);
+	test.similarityQueryTest(20, 30);
 	
 
 	//CPURangeQueryResult* resultTable = NULL;
