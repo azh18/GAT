@@ -1147,6 +1147,7 @@ int cudaRangeQuerySTIGHandler(RangeQueryStateTable* stateTableGPU, int stateTabl
 
 	//timer.stop();
 	//std::cout << "Time 3:" << timer.elapse() << "ms" << std::endl;
+	CUDA_CALL(cudaFree(resultGPU));
 	return 0;
 }
 

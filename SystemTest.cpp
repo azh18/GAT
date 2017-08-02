@@ -121,9 +121,40 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	for (int i = 0; i <= 4999; i++)
 		mbbArray[i] = rangeQueryMBB;
 	MyTimer timer;
+	printf("single GPU STIG range query #query=%d:\n", rangeQueryNum);
 	timer.start();
-	stig->rangeQueryGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
+	stig->rangeQueryGPU(mbbArray, rangeQueryNum, resultTable, resultSize, 0);
 	timer.stop();
-	cout << "CPU Time of STIG:" << timer.elapse() << "ms" << endl;
+	cout << "single GPU Time of STIG:" << timer.elapse() << "ms" << endl;
+
+	int device_num = 2;
+	vector<thread> threads_RQ;
+	int rangeNumGPU[2];
+	rangeNumGPU[0] = rangeQueryNum / 2;
+	rangeNumGPU[1] = rangeQueryNum - rangeNumGPU[0];
+	int startIdx[2];
+	startIdx[0] = 0;
+	startIdx[1] = rangeNumGPU[0];
+	void* allocatedGPUMem[2] = { NULL };
+	for (int device_idx = 0; device_idx <= device_num - 1; device_idx++)
+	{
+		// this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
+		CUDA_CALL(cudaSetDevice(device_idx));
+		CUDA_CALL(cudaMalloc((void**)&this->stig->baseAddrGPU[device_idx], (long long int)2048 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[device_idx], 512 * 1024 * 1024));
+		allocatedGPUMem[device_idx] = this->stig->baseAddrGPU[device_idx];
+		threads_RQ.push_back(thread(std::mem_fn(&STIG::rangeQueryGPU), this->stig, &mbbArray[startIdx[device_idx
+		]], rangeNumGPU[device_idx], resultTable, resultSize, device_idx));
+	}
+	timer.start();
+	std::for_each(threads_RQ.begin(), threads_RQ.end(), std::mem_fn(&std::thread::join));
+	timer.stop();
+	cout << "Dual GPU Time of STIG:" << timer.elapse() << "ms" << endl;
+	for (int device_idx = 0; device_idx <= device_num - 1; device_idx++)
+	{
+		CUDA_CALL(cudaFree(allocatedGPUMem[device_idx]));
+		CUDA_CALL(cudaFree(this->stig->stateTableGPU[device_idx]));
+	}
+
 	return 0;
 }

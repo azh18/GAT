@@ -251,20 +251,21 @@ int STIG::searchNode(MBB queryMBB, std::vector<STIGBlock>* allCandBlocks, LeafNo
 	return 0;
 }
 
-int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize)
+int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize, int device_idx)
 {
 	// search all blocks should be sent to GPU
+	CUDA_CALL(cudaSetDevice(device_idx));
 	cudaStream_t stream;
 	cudaStreamCreate(&stream);
 
-	void* baseAddr = baseAddrGPU;
+	void* baseAddr = this->baseAddrGPU[device_idx];
 	void* allPointsInGPU = baseAddr;
 	vector<RangeQueryStateTable> stateTable;
 	int cntTask = 0;
 	for (int i = 0; i <= rangeNum - 1; i++) {
 		vector<STIGBlock> allCandBlocks;
 		this->searchTree(bounds[i], &allCandBlocks);
-		printf("%d", allCandBlocks.size());
+		//printf("%d", allCandBlocks.size());
 		int sizeOfCands = allCandBlocks.size();
 		for (int j = 0; j <= sizeOfCands - 1;j++)
 		{
@@ -290,13 +291,11 @@ int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTa
 		}
 	}
 	// allocate GPU, using stateTable
-	RangeQueryStateTable* stateTableGPU = NULL;
-	CUDA_CALL(cudaMalloc((void**)&stateTableGPU, sizeof(RangeQueryStateTable)*stateTable.size()));
-	CUDA_CALL(cudaMemcpyAsync(stateTableGPU, (void*)(&stateTable[0]), sizeof(RangeQueryStateTable)*stateTable.size(), cudaMemcpyHostToDevice, stream));
+	CUDA_CALL(cudaMemcpyAsync(this->stateTableGPU[device_idx], (void*)(&stateTable[0]), sizeof(RangeQueryStateTable)*stateTable.size(), cudaMemcpyHostToDevice, stream));
 	//RangeQueryStateTable* stateTableGPU = (RangeQueryStateTable*)baseAddr;
 	uint8_t *resultsReturned = new uint8_t[rangeNum*(this->maxTid+1)];
 	memset(resultsReturned, 0, rangeNum*(this->maxTid+1));
-	cudaRangeQuerySTIGHandler(stateTableGPU, stateTable.size(), resultsReturned, (this->maxTid+1), rangeNum, stream);
+	cudaRangeQuerySTIGHandler((RangeQueryStateTable*)this->stateTableGPU[device_idx], stateTable.size(), resultsReturned, (this->maxTid+1), rangeNum, stream);
 	//shanhou
 	//ofstream fp("queryResult(STIG).txt",ios_base::out);
 	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
@@ -306,6 +305,7 @@ int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTa
 	//		}
 	//	}
 	//}
+	delete[] resultsReturned;
 	cudaStreamDestroy(stream);
 	return 0;
 }

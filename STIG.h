@@ -42,6 +42,11 @@ class STIG
 {
 public:
 	STIG();
+	// 多GPU查询用
+	void* baseAddrGPU[2];
+	void* stateTableGPU[2];
+	// 多GPU查询用
+
 	void *root;
 	int totalDim;
 	int totalPointsNum;
@@ -56,6 +61,6 @@ public:
 	int searchTree(MBB queryMBB, std::vector<STIGBlock> *allCandBlocks);
 	int searchNode(MBB queryMBB, std::vector<STIGBlock> *allCandBlocks, InternalNode* node);
 	int searchNode(MBB queryMBB, std::vector<STIGBlock> *allCandBlocks, LeafNode* node);
-	int rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
+	int rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize, int device_idx);
 	static bool intersectBlock(float amin, float amax, float bmin, float bmax);
 };
