@@ -73,7 +73,7 @@ int main()
 	SystemTest test(tradb, g,stig);
 	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 2);
 	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 2);
-	test.similarityQueryTest(2, 80);
+	test.similarityQueryTest(20, 80);
 	
 
 	//CPURangeQueryResult* resultTable = NULL;

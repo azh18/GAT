@@ -2017,7 +2017,7 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 				device_idx = 1;
 				idxInTaskInfoTable = idx - k*queryEachGPU[0];
 			}
-			int qID = taskInfoTable[device_idx][idx].qID;
+			int qID = taskInfoTable[device_idx][idxInTaskInfoTable].qID;
 			int i = idx % k;
 			if (numElemInCalculatedQueue[qID] < kValue)
 			{
