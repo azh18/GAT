@@ -128,7 +128,7 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	void* allocatedGPUMemS = 0;
 	CUDA_CALL(cudaMalloc((void**)&this->stig->baseAddrGPU[0], (long long int)512 * 1024 * 1024));
 	CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[0], 512 * 1024 * 1024));
-	allocatedGPUMemS = this->stig->baseAddrGPU;
+	allocatedGPUMemS = this->stig->baseAddrGPU[0];
 	timer.start();
 	stig->rangeQueryGPU(mbbArray, rangeQueryNum, resultTable, resultSize, 0);
 	timer.stop();
