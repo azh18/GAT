@@ -121,11 +121,22 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	for (int i = 0; i <= 4999; i++)
 		mbbArray[i] = rangeQueryMBB;
 	MyTimer timer;
+
+	// single GPU
 	printf("single GPU STIG range query #query=%d:\n", rangeQueryNum);
+
+	void* allocatedGPUMemS = 0;
+	CUDA_CALL(cudaMalloc((void**)&this->stig->baseAddrGPU[0], (long long int)512 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[0], 512 * 1024 * 1024));
+	allocatedGPUMemS = this->stig->baseAddrGPU;
 	timer.start();
 	stig->rangeQueryGPU(mbbArray, rangeQueryNum, resultTable, resultSize, 0);
 	timer.stop();
 	cout << "single GPU Time of STIG:" << timer.elapse() << "ms" << endl;
+	CUDA_CALL(cudaFree(allocatedGPUMemS));
+	CUDA_CALL(cudaFree(this->stig->stateTableGPU[0]));
+
+	// multi-GPU
 
 	int device_num = 2;
 	vector<thread> threads_RQ;
