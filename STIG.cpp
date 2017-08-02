@@ -25,11 +25,11 @@ STIG::STIG()
 }
 
 bool cmpBig_SPoint_X(SPoint a, SPoint b) {
-	return (a.x > b.x);
+	return (a.x < b.x);
 }
 
 bool cmpBig_SPoint_Y(SPoint a, SPoint b) {
-	return (a.y > b.y);
+	return (a.y < b.y);
 }
 
 int STIG::initial(int blockSize, int totalDim, Trajectory* db, int trajNum)
@@ -227,7 +227,7 @@ int STIG::searchNode(MBB queryMBB, std::vector<STIGBlock>* allCandBlocks, Intern
 			else
 				searchNode(queryMBB, allCandBlocks, (InternalNode*)node->left);
 		}
-		if (intersectBlock(queryMBB.xmin, queryMBB.xmax, node->medium, 180))
+		if (intersectBlock(queryMBB.ymin, queryMBB.ymax, node->medium, 180))
 		{
 			if (node->rightIsLeaf)
 				searchNode(queryMBB, allCandBlocks, (LeafNode*)node->right);
@@ -264,7 +264,9 @@ int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTa
 	for (int i = 0; i <= rangeNum - 1; i++) {
 		vector<STIGBlock> allCandBlocks;
 		this->searchTree(bounds[i], &allCandBlocks);
-		for (int j = 0; j <= allCandBlocks.size() - 1;j++)
+		printf("%d", allCandBlocks.size());
+		int sizeOfCands = allCandBlocks.size();
+		for (int j = 0; j <= sizeOfCands - 1;j++)
 		{
 			RangeQueryStateTable stateTableCPU;
 			int startIdx = allCandBlocks[j].startIdx;
@@ -296,14 +298,14 @@ int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTa
 	memset(resultsReturned, 0, rangeNum*(this->maxTid+1));
 	cudaRangeQuerySTIGHandler(stateTableGPU, stateTable.size(), resultsReturned, (this->maxTid+1), rangeNum, stream);
 	//shanhou
-	ofstream fp("queryResult(STIG).txt",ios_base::out);
-	for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
-		for (int traID = 1; traID <= (this->maxTid); traID++) {
-			if (resultsReturned[jobID*(this->maxTid+1) + traID] == 1) {
-				fp << "job " << jobID << "find" << traID << endl;
-			}
-		}
-	}
+	//ofstream fp("queryResult(STIG).txt",ios_base::out);
+	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++) {
+	//	for (int traID = 1; traID <= (this->maxTid); traID++) {
+	//		if (resultsReturned[jobID*(this->maxTid+1) + traID] == 1) {
+	//			fp << "job " << jobID << "find" << traID << endl;
+	//		}
+	//	}
+	//}
 	cudaStreamDestroy(stream);
 	return 0;
 }
