@@ -331,20 +331,15 @@ int Grid::writeCellsToFile(int* cellNo, int cellNum, string file)
 
 int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize)
 {
-	ofstream out("queryResult(CPUGTS).txt", ios::out);
-	ResultTable = (CPURangeQueryResult*)malloc(sizeof(CPURangeQueryResult));
-	ResultTable->traid = -1; //table开头traid为-1 flag
-	ResultTable->next = NULL;
-	resultSetSize = (int*)malloc(sizeof(int) * rangeNum);
-	CPURangeQueryResult* nowResult;
-	nowResult = ResultTable;
+	for (int i = 0; i <= rangeNum - 1;i++)
+	{
+		ResultTable[i].resize(this->trajNum + 1);
+		memset(&ResultTable[i][0], 0, sizeof(bool)*(this->trajNum + 1));
+	}
 	int totalLevel = int(log2(this->cellnum) / log2(4));
-	uint8_t* resultsReturned = new uint8_t[rangeNum * (this->trajNum + 1)];
-	memset(resultsReturned, 0, rangeNum * (this->trajNum + 1));
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		//int candidateNodeNum = 0;
-		resultSetSize[i] = 0;
 		vector<QuadtreeNode*> cells;
 		findMatchNodeInQuadTree(this->root, bounds[i], &cells);
 		//printf("%d", cells.size());
@@ -369,23 +364,7 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 					int tID = allPoints[idx].tID;
 					if (bounds[i].pInBox(realX, realY))
 					{
-						//printf("%f,%f", realX, realY);
-						//printf("%d\n", idx);
-						//newResult = (CPURangeQueryResult*)malloc(sizeof(CPURangeQueryResult));
-						//if (newResult == NULL)
-						//	return 2; //分配内存失败
-						//compress
-						//newResult->traid = allPointsDeltaEncoding[idx].tID;
-						//no compress
-						//newResult->traid = allPoints[idx].tID;
-						//newResult->x = realX;
-						//newResult->y = realY;
-						//// out << "Qid:" << i << "......." << newResult->x << "," << newResult->y << endl;
-						//newResult->next = NULL;
-						//nowResult->next = newResult;
-						//nowResult = newResult;
-						resultsReturned[i * (this->trajNum + 1) + tID] = 1;
-						resultSetSize[i]++;
+						ResultTable[i][tID] = TRUE;
 					}
 				}
 			}
@@ -403,8 +382,28 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 	//	}
 	//}
 
-	out.close();
 	return 0;
+}
+
+int Grid::rangeQueryBatchMultiThread(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize)
+{
+	
+	vector<thread> threads_RQ;
+	const int device_num = 16;
+	int nowidx = 0;
+	for (int device_idx = 0; device_idx <= device_num - 1; device_idx++)
+	{
+		int boundNum = rangeNum / device_num;
+		if (nowidx + boundNum >= rangeNum)
+			boundNum = rangeNum - nowidx + 1;
+		threads_RQ.push_back(thread(std::mem_fn(&Grid::rangeQueryBatch), this, &bounds[nowidx], boundNum, &ResultTable[nowidx], resultSetSize));
+		nowidx += boundNum;
+	}
+	std::for_each(threads_RQ.begin(), threads_RQ.end(), std::mem_fn(&std::thread::join));
+
+	return 0;
+
+	
 }
 
 int Grid::findMatchNodeInQuadTree(QuadtreeNode* node, MBB& bound, vector<QuadtreeNode*>* cells)
@@ -428,14 +427,13 @@ int Grid::findMatchNodeInQuadTree(QuadtreeNode* node, MBB& bound, vector<Quadtre
 }
 
 
-int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize, int device_idx)
+int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx)
 {
 	// 分配GPU内存
-	//MyTimer timer;
+	MyTimer timer;
 	// 参数随便设置的，可以再调
-	//timer.start();
+	timer.start();
 	CUDA_CALL(cudaSetDevice(device_idx));
-	RangeQueryStateTable* stateTableAllocate = (RangeQueryStateTable*)malloc(sizeof(RangeQueryStateTable) * 1000000);
 	this->stateTableRange[device_idx] = stateTableAllocate;
 	this->stateTableLength[device_idx] = 0;
 	this->nodeAddrTableLength[device_idx] = 0;
@@ -456,19 +454,19 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	}
 	//交给GPU进行并行查询
 	//先传递stateTable
-	//timer.stop();
-	//cout << "Time 1:" << timer.elapse() << "ms" << endl;
+	timer.stop();
+	cout << "Time 1:" << timer.elapse() << "ms" << endl;
 
-	//timer.start();
+	timer.start();
 	CUDA_CALL(cudaMemcpyAsync(this->stateTableGPU[device_idx], stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength[device_idx],
 		cudaMemcpyHostToDevice, stream));
 	//传递完成，开始调用kernel查询
 	uint8_t* resultsReturned = (uint8_t*)malloc(sizeof(uint8_t) * (this->trajNum + 1) * rangeNum);
 
-	//timer.stop();
-	//cout << "Time 2:" << timer.elapse() << "ms" << endl;
+	timer.stop();
+	cout << "Time 2:" << timer.elapse() << "ms" << endl;
 
-	//timer.start();
+	timer.start();
 	cudaRangeQueryTestHandler((RangeQueryStateTable*)this->stateTableGPU[device_idx], this->stateTableLength[device_idx], resultsReturned, this->trajNum + 1, rangeNum, stream);
 	//ofstream fp("queryResult(GTS).txt", ios_base::out);
 	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
@@ -485,8 +483,8 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);
 	//}
-	//timer.stop();
-	//cout << "Time 3:" << timer.elapse() << "ms" << endl;
+	timer.stop();
+	cout << "Time 3:" << timer.elapse() << "ms" << endl;
 
 	//FILE *fp = fopen("resultQuery.txt", "w+");
 	//for (int i = 0; i <= stateTableLength - 1; i++) {
@@ -500,8 +498,6 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//	}
 	//}
 	//查询结束，善后，清空stateTable，清空gpu等
-	this->stateTableRange[device_idx] = stateTableAllocate;
-	free(stateTableAllocate);
 	cudaStreamDestroy(stream);
 	return 0;
 }
@@ -519,6 +515,10 @@ int Grid::rangeQueryBatchMultiGPU(MBB* bounds, int rangeNum, CPURangeQueryResult
 	startIdx[0] = 0;
 	startIdx[1] = rangeNumGPU[0];
 	void* allocatedGPUMem[2] = { NULL };
+	vector<RangeQueryStateTable> stateTableRange[2];
+	stateTableRange[0].resize(rangeNum * 1000);
+	stateTableRange[1].resize(rangeNum * 1000);
+
 	for (int device_idx=0; device_idx <= device_num - 1; device_idx++)
 	{
 		// this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
@@ -527,7 +527,7 @@ int Grid::rangeQueryBatchMultiGPU(MBB* bounds, int rangeNum, CPURangeQueryResult
 		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], 512 * 1024 * 1024));
 		allocatedGPUMem[device_idx] = this->baseAddrRange[device_idx];
 		threads_RQ.push_back(thread(std::mem_fn(&Grid::rangeQueryBatchGPU), this, &bounds[startIdx[device_idx
-		]], rangeNumGPU[device_idx], ResultTable, resultSetSize, device_idx));
+		]], rangeNumGPU[device_idx], ResultTable, resultSetSize, &stateTableRange[device_idx][0], device_idx));
 	}
 	timer.start();
 	std::for_each(threads_RQ.begin(), threads_RQ.end(), std::mem_fn(&std::thread::join));
@@ -921,104 +921,6 @@ int Grid::SimilarityQueryBatchCPUParallel(Trajectory* qTra, int queryTrajNum, in
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
 
 
-	//// check if the FD is lowerbound for all traj
-	//for (int qID = 0; qID <= queryTrajNum - 1; qID++)
-	//{
-	//	SPoint* queryTra = (SPoint*)malloc(sizeof(SPoint) * qTra[qID].length);
-	//	for (int i = 0; i <= qTra[qID].length - 1; i++)
-	//	{
-	//		queryTra[i].x = qTra[qID].points[i].lon;
-	//		queryTra[i].y = qTra[qID].points[i].lat;
-	//		queryTra[i].tID = qTra[qID].tid;
-	//	}
-	//	int worstNow = 9999999;
-	//	//timer.start();
-	//	//printf("qID:%d", qID);
-	//	/*MyTimer tt;*/
-	//	while (worstNow > queryQueue[qID].top().FD)
-	//	{
-	//		/*tt.start();*/
-	//		int candidateTrajID[k];
-	//		//printf("%d", worstNow);
-	//		//提取topk
-	//		for (int i = 0; i <= k - 1; i++)
-	//		{
-	//			candidateTrajID[i] = queryQueue[qID].top().traID;
-	//			//printf("%d,%d\t", queryQueue[qID].top().traID,queryQueue[qID].top().FD);
-	//			queryQueue[qID].pop();
-	//		}
-	//		//EDR calculate
-	//		//第一步：从AllPoints里提取出来轨迹
-	//		SPoint** candidateTra = (SPoint**)malloc(sizeof(SPoint*) * k);
-	//		int* candidateTraLength = (int*)malloc(sizeof(int) * k);
-	//		for (int i = 0; i <= k - 1; i++)
-	//		{
-	//			candidateTra[i] = (SPoint*)malloc(sizeof(SPoint) * this->cellBasedTrajectory[candidateTrajID[i]].trajLength);
-	//			SPoint* tempPtr = candidateTra[i];
-	//			for (int subID = 0; subID <= this->cellBasedTrajectory[candidateTrajID[i]].length - 1; subID++)
-	//			{
-	//				int idxInAllPoints = this->cellBasedTrajectory[candidateTrajID[i]].startIdx[subID];
-	//				memcpy(tempPtr, &this->allPoints[idxInAllPoints], sizeof(SPoint) * this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
-	//				//for (int cnt = 0; cnt <= this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID] - 1; cnt++) {
-	//				//	candidateTra[i][cnt] = this->allPoints[idxInAllPoints+cnt];
-	//				//}
-	//				//printf("%d ", this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
-	//				tempPtr += this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID];
-	//			}
-	//			candidateTraLength[i] = this->cellBasedTrajectory[candidateTrajID[i]].trajLength;
-	//		}
-	//		//tt.stop();
-	//		//cout << "Part3.1 time:" << tt.elapse() << endl;
-	//		//tt.start();
-	//		//第二步：计算EDR
-	//		//printf("%d", qID);
-	//		int resultReturned[k];
-	//		this->SimilarityExecuter(queryTra, candidateTra, qTra[qID].length, candidateTraLength, k, resultReturned);
-	//		//tt.stop();
-	//		//cout << "Part3.3 time:" << tt.elapse() << endl;
-	//		//更新worstNow
-	//		for (int i = 0; i <= k - 1; i++)
-	//		{
-	//			if (numElemInCalculatedQueue[qID] < kValue)
-	//			{
-	//				//直接往PQ里加
-	//				FDwithID fd;
-	//				fd.traID = candidateTrajID[i];
-	//				fd.FD = resultReturned[i];
-	//				EDRCalculated[qID].push(fd);
-	//				numElemInCalculatedQueue[qID]++;
-	//			}
-	//			else
-	//			{
-	//				//看一下是否比PQ里更好，如果是弹出一个差的，换进去一个好的；否则不动优先队列也不更新worstNow。
-	//				int worstInPQ = EDRCalculated[qID].top().FD;
-	//				if (resultReturned[i] < worstInPQ)
-	//				{
-	//					EDRCalculated[qID].pop();
-	//					FDwithID fd;
-	//					fd.traID = candidateTrajID[i];
-	//					fd.FD = resultReturned[i];
-	//					EDRCalculated[qID].push(fd);
-	//				}
-	//			}
-	//		}
-	//		worstNow = EDRCalculated[qID].top().FD;
-	//		//printf("%d,worstNow:%d\t", qID,worstNow);
-	//		//该轮结束，释放内存
-	//		for (int i = 0; i <= k - 1; i++)
-	//			free(candidateTra[i]);
-	//		free(candidateTraLength);
-	//		free(candidateTra);
-	//	}
-	//	//timer.stop();
-	//	//cout << "Query Trajectory Length:" << qTra[qID].length << endl;
-	//	//cout << "Part3 time:" << timer.elapse() << endl;
-	//	//timer.start();
-	//	free(queryTra);
-
-	//	//timer.stop();
-	//	//cout << "Part4 time:" << timer.elapse() << endl;
-	//}	 
 
 	for (int qID = 0; qID <= queryTrajNum - 1; qID++)
 	{

@@ -48,8 +48,9 @@ public:
 	int buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode *parent);
 	//rangeQuery≈˙¡ø
 	int rangeQueryBatch(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
+	int rangeQueryBatchMultiThread(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
 	int findMatchNodeInQuadTree(QuadtreeNode *node, MBB& bound, std::vector<QuadtreeNode*> *cells);
-	int rangeQueryBatchGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize, int device_idx);
+	int rangeQueryBatchGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx);
 	int rangeQueryBatchMultiGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
 	int findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, std::vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID, int device_idx);
 	//SimilarityQuery

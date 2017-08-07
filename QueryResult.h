@@ -1,12 +1,7 @@
 #pragma once
+#include <vector>
 
-struct CPURangeQueryResult
-{
-	int traid;
-	float x;
-	float y;
-	CPURangeQueryResult *next;
-};
+typedef std::vector<bool> CPURangeQueryResult;
 
 typedef struct RangeQueryResultGPU {
 	short jobID;
