@@ -336,7 +336,7 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 		ResultTable[i].resize(this->trajNum + 1);
 		for (int j = 0; j <= this->trajNum + 1;j++)
 		{
-			ResultTable[i][0] = 0;
+			ResultTable[i][j] = 0;
 		}
 	}
 	int totalLevel = int(log2(this->cellnum) / log2(4));
