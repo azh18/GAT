@@ -433,9 +433,9 @@ int Grid::findMatchNodeInQuadTree(QuadtreeNode* node, MBB& bound, vector<Quadtre
 int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx)
 {
 	// 分配GPU内存
-	MyTimer timer;
+	//MyTimer timer;
 	// 参数随便设置的，可以再调
-	timer.start();
+	//timer.start();
 	CUDA_CALL(cudaSetDevice(device_idx));
 	this->stateTableRange[device_idx] = stateTableAllocate;
 	this->stateTableLength[device_idx] = 0;
@@ -457,19 +457,19 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	}
 	//交给GPU进行并行查询
 	//先传递stateTable
-	timer.stop();
-	cout << "Time 1:" << timer.elapse() << "ms" << endl;
+	//timer.stop();
+	//cout << "Time 1:" << timer.elapse() << "ms" << endl;
 
-	timer.start();
+	//timer.start();
 	CUDA_CALL(cudaMemcpyAsync(this->stateTableGPU[device_idx], stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength[device_idx],
 		cudaMemcpyHostToDevice, stream));
 	//传递完成，开始调用kernel查询
 	uint8_t* resultsReturned = (uint8_t*)malloc(sizeof(uint8_t) * (this->trajNum + 1) * rangeNum);
 
-	timer.stop();
-	cout << "Time 2:" << timer.elapse() << "ms" << endl;
+	//timer.stop();
+	//cout << "Time 2:" << timer.elapse() << "ms" << endl;
 
-	timer.start();
+	//timer.start();
 	cudaRangeQueryTestHandler((RangeQueryStateTable*)this->stateTableGPU[device_idx], this->stateTableLength[device_idx], resultsReturned, this->trajNum + 1, rangeNum, stream);
 	//ofstream fp("queryResult(GTS).txt", ios_base::out);
 	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
@@ -486,8 +486,8 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);
 	//}
-	timer.stop();
-	cout << "Time 3:" << timer.elapse() << "ms" << endl;
+	//timer.stop();
+	//cout << "Time 3:" << timer.elapse() << "ms" << endl;
 
 	//FILE *fp = fopen("resultQuery.txt", "w+");
 	//for (int i = 0; i <= stateTableLength - 1; i++) {
