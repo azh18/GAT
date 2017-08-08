@@ -95,22 +95,28 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 {
 	baseAddrGPU = NULL;
 	Trajectory* qTra = new Trajectory[similarityScale];
+	qTra->points.resize(this->g->cellBasedTrajectory[queryTrajNo].trajLength);
 	// form query trajectories
-	//for (int subID = 0; subID <= this->g->cellBasedTrajectory[queryTrajNo].length - 1; subID++)
-	//{
-	//	int idxInAllPoints = this->g->cellBasedTrajectory[queryTrajNo].startIdx[subID];
-	//	memcpy(tempPtr, &this->allPoints[idxInAllPoints], sizeof(SPoint) * this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
-	//	//for (int cnt = 0; cnt <= this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID] - 1; cnt++) {
-	//	//	candidateTra[i][cnt] = this->allPoints[idxInAllPoints+cnt];
-	//	//}
-	//	//printf("%d ", this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
-	//	tempPtr += this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID];
-	//}
+	int cnt = 0;
+	qTra->length = this->g->cellBasedTrajectory[queryTrajNo].trajLength;
+	qTra->tid = queryTrajNo;
 
-	for (int i = 0; i <= similarityScale-1; i++)
+	for (int subID = 0; subID <= this->g->cellBasedTrajectory[queryTrajNo].length - 1; subID++)
 	{
-		qTra[i] = tradb[47]; // length is 1024
+		int idxInAllPoints = this->g->cellBasedTrajectory[queryTrajNo].startIdx[subID];
+		for (int pidx = 0; pidx <= this->g->cellBasedTrajectory[queryTrajNo].numOfPointInCell[subID] - 1;pidx++)
+		{
+			qTra->points[cnt + pidx].lat = this->g->allPoints[idxInAllPoints + pidx].y;
+			qTra->points[cnt + pidx].lon = this->g->allPoints[idxInAllPoints + pidx].x;
+			qTra->points[cnt + pidx].tid = this->g->allPoints[idxInAllPoints + pidx].tID;
+		}
+		cnt += this->g->cellBasedTrajectory[queryTrajNo].numOfPointInCell[subID];
 	}
+
+	//for (int i = 0; i <= similarityScale-1; i++)
+	//{
+	//	qTra[i] = tradb[47]; // length is 1024
+	//}
 	//for (int i = 1; i <= 9999;i++)
 	//{
 	//	if (tradb[i].length > 600)
@@ -160,6 +166,7 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 	*/
 	
 	delete[] simiResult;
+	delete[] qTra;
 	return 0;
 }
 

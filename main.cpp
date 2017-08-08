@@ -50,16 +50,17 @@ int main()
 	//cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	
-	for (int i = 1; i <= 10000;i++)
-	{
-		printf("%d,%d\t", i, tradb[i].length);
-	}
+	//for (int i = 1; i <= 10000;i++)
+	//{
+	//	printf("%d,%d\t", i, tradb[i].length);
+	//}
+
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	STIG *stig = new STIG();
 	stig->initial(1024, 2, tradb, pp.maxTid);
-
-	//delete[] tradb;
+	cout << "build cell index success!" << endl;
+	delete[] tradb;
 	int count = 0;
 	for (int i = 0; i <= g->cellnum - 1; i++)
 	{
@@ -70,8 +71,9 @@ int main()
 	//int temp[7] = { 553,554,555,556,557,558,559 };
 	//int sizetemp = 7;
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
+
 	SystemTest test(tradb, g,stig);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	//test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
 	//test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
 	test.similarityQueryTest(47, 2, 30);
 	
@@ -161,7 +163,7 @@ int main()
 	ftest << endl;
 
 
-	cout << "build cell index success!" << endl;
+
 	getchar();
 	getchar();
 	getchar();
