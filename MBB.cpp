@@ -1,6 +1,6 @@
 #include "MBB.h"
-
-
+#include <math.h>
+#include <cstdlib>
 
 MBB::MBB()
 {
@@ -80,6 +80,32 @@ return 3:b1包含a1
 int MBB::intersect(MBB& b) {
 	return (BoxIntersect(*this, b));
 }
+
+int MBB::randomGenerateMBB(MBB& generated)
+{
+	float minx, maxx, miny, maxy;
+	minx = this->xmin;
+	miny = this->ymin;
+	maxx = this->xmax;
+	maxy = this->ymax;
+
+	float x1, x2;
+	float y1, y2;
+	x1 = (rand() / double(RAND_MAX))*(maxx - minx) + minx;
+	x2 = (rand() / double(RAND_MAX))*(maxx - minx) + minx;
+	y1 = (rand() / double(RAND_MAX))*(maxy - miny) + miny;
+	y2 = (rand() / double(RAND_MAX))*(maxy - miny) + miny;
+	minx = x1 > x2 ? x2 : x1;
+	maxx = x1 > x2 ? x1 : x2;
+	miny = y1 > y2 ? y2 : y1;
+	maxy = y1 > y2 ? y1 : y2;
+	generated.xmin = minx;
+	generated.xmax = maxx;
+	generated.ymin = miny;
+	generated.ymax = maxy;
+	return 0;
+}
+
 /* return 0:不相交
    return 1:相交但不包含
    return 2:this包含b

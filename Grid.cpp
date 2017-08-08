@@ -396,9 +396,9 @@ int Grid::rangeQueryBatchMultiThread(MBB* bounds, int rangeNum, CPURangeQueryRes
 	int nowidx = 0;
 	for (int device_idx = 0; device_idx <= device_num - 1; device_idx++)
 	{
-		int boundNum = rangeNum / device_num;
+		int boundNum = rangeNum / device_num + 1;
 		if (nowidx + boundNum >= rangeNum)
-			boundNum = rangeNum - nowidx + 1;
+			boundNum = rangeNum - nowidx;
 		threads_RQ.push_back(thread(std::mem_fn(&Grid::rangeQueryBatch), this, &bounds[nowidx], boundNum, &ResultTable[nowidx], resultSetSize));
 		nowidx += boundNum;
 	}

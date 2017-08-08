@@ -27,7 +27,7 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	MBB mbbArray[5000];
 	int* resultSize = NULL;
 	for (int i = 0; i <= 4999; i++)
-		mbbArray[i] = rangeQueryMBB;
+		rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
 	MyTimer timer;
 
 	
@@ -62,7 +62,13 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	
 	printf("single GPU range query #query=%d:\n", rangeQueryNum);
 	CUDA_CALL(cudaSetDevice(0));
+
+#ifdef WIN32
 	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)512 * 1024 * 1024));
+#else
+	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)2048 * 1024 * 1024));
+#endif
+
 	void *allocatedGPUMem = g->baseAddrRange[0];
 	CUDA_CALL(cudaMalloc((void**)&g->stateTableGPU[0], 512 * 1024 * 1024));
 	vector<RangeQueryStateTable> stateTableRange;
@@ -74,10 +80,12 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaFree(allocatedGPUMem));
 	CUDA_CALL(cudaFree(g->stateTableGPU[0]));
 
-	
+#ifdef USE_MULTIGPU
 	printf("multi-GPU range query #query=%d:\n", rangeQueryNum);
 	g->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
-	
+#else
+
+#endif
 	
 
 	return 0;
@@ -99,7 +107,7 @@ int SystemTest::similarityQueryTest(int similarityScale, int similarityKValue)
 
 	//Similarity on CPU
 	int* simiResult = new int[similarityKValue * similarityScale];
-	//g->SimilarityQueryBatch(qTra, similarityScale, simiResult, similarityKValue);
+	g->SimilarityQueryBatch(qTra, similarityScale, simiResult, similarityKValue);
 	printf("multi-core CPU similarity @ k=%d and #query=%d:\n",similarityKValue,similarityScale);
 	g->SimilarityQueryBatchCPUParallel(qTra, similarityScale, simiResult, similarityKValue);
 
@@ -121,9 +129,12 @@ int SystemTest::similarityQueryTest(int similarityScale, int similarityKValue)
 	printf("one GPU similarity @ k=%d and #query=%d:\n", similarityKValue, similarityScale);
 	g->SimilarityQueryBatchOnGPU(qTra, similarityScale, simiResult, similarityKValue);
 
-	
+#ifdef USE_MULTIGPU
 	printf("multi-GPU similarity @ k=%d and #query=%d:\n", similarityKValue, similarityScale);
 	g->SimilarityQueryBatchOnMultiGPU(qTra, similarityScale, simiResult, similarityKValue);
+#else
+
+#endif
 	
 	/*
 	for (int i = 0; i <= similarityScale-1; i++)
@@ -166,8 +177,8 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaFree(allocatedGPUMemS));
 	CUDA_CALL(cudaFree(this->stig->stateTableGPU[0]));
 
+#ifdef USE_MULTIGPU
 	// multi-GPU
-
 	int device_num = 2;
 	vector<thread> threads_RQ;
 	int rangeNumGPU[2];
@@ -196,6 +207,9 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 		CUDA_CALL(cudaFree(allocatedGPUMem[device_idx]));
 		CUDA_CALL(cudaFree(this->stig->stateTableGPU[device_idx]));
 	}
+#else
+
+#endif
 
 	return 0;
 }
