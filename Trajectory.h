@@ -13,7 +13,8 @@ class Trajectory
         int addSamplePoints(float lon,float lat,int time);
         virtual ~Trajectory();
         int tid;
-        SamplePoint points[MAXLENGTH]; //下标从0开始
+        // SamplePoint points[MAXLENGTH]; //下标从0开始
+		std::vector<SamplePoint> points;
 		//SPoint points[MAXLENGTH];
         int length = 0;
         std::string vid;

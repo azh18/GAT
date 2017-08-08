@@ -541,6 +541,7 @@ int Grid::rangeQueryBatchMultiGPU(MBB* bounds, int rangeNum, CPURangeQueryResult
 		CUDA_CALL(cudaFree(allocatedGPUMem[device_idx]));
 		CUDA_CALL(cudaFree(this->stateTableGPU[device_idx]));
 	}
+	return 0;
 }
 
 int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode* node, MBB& bound, vector<QuadtreeNode*>* cells, cudaStream_t stream, int queryID, int device_idx)

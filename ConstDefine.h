@@ -1,5 +1,5 @@
 #pragma once
-#define USE_MULTIGPU
+//#define USE_MULTIGPU
 
 #define MAX_TRAJ_SIZE 50000
 //受到GPU可用的shared memory限制

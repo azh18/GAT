@@ -22,7 +22,7 @@ public:
 	int similarityKValue;
 	SystemTest(Trajectory* tradb, Grid* g, STIG *stig);
 	int rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
-	int similarityQueryTest(int similarityScale, int similarityKValue);
+	int similarityQueryTest(int queryTrajNo, int similarityScale, int similarityKValue);
 	int STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
 
 };

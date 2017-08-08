@@ -72,8 +72,8 @@ int main()
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 	SystemTest test(tradb, g,stig);
 	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
-	test.similarityQueryTest(20, 30);
+	//test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	test.similarityQueryTest(47, 2, 30);
 	
 
 	//CPURangeQueryResult* resultTable = NULL;

@@ -263,10 +263,12 @@ bool PreProcess::readTraFromFormatedFile(string outFileName)
 			char* num = strtok(thisLineStr, ";");
 			tradb[0].length = 0;
 			tradb[1].length = std::atoi(num);
+			tradb[1].points.resize(tradb[1].length);
 			for (int i = 2; i <= this->maxTid;i++)
 			{
 				num = strtok(NULL, ";");
 				tradb[i].length = std::atoi(num);
+				tradb[i].points.resize(tradb[i].length);
 			}
 		}
 		else

@@ -38,10 +38,11 @@ int Trajectory::addSamplePoints(float lon,float lat,int time)
         }
     }
     //经过检查可以加入这点到轨迹中
-    this->points[this->length].lat = lat;
-    this->points[this->length].lon = lon;
-    this->points[this->length].tid = this->tid;
-    this->points[this->length].time = time;
+	this->points.push_back(SamplePoint(lon, lat, time, this->tid));
+    //this->points[this->length].lat = lat;
+    //this->points[this->length].lon = lon;
+    //this->points[this->length].tid = this->tid;
+    //this->points[this->length].time = time;
     this->length++;
     return 0;
 }

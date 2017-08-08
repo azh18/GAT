@@ -91,10 +91,22 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	return 0;
 }
 
-int SystemTest::similarityQueryTest(int similarityScale, int similarityKValue)
+int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int similarityKValue)
 {
 	baseAddrGPU = NULL;
 	Trajectory* qTra = new Trajectory[similarityScale];
+	// form query trajectories
+	//for (int subID = 0; subID <= this->g->cellBasedTrajectory[queryTrajNo].length - 1; subID++)
+	//{
+	//	int idxInAllPoints = this->g->cellBasedTrajectory[queryTrajNo].startIdx[subID];
+	//	memcpy(tempPtr, &this->allPoints[idxInAllPoints], sizeof(SPoint) * this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
+	//	//for (int cnt = 0; cnt <= this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID] - 1; cnt++) {
+	//	//	candidateTra[i][cnt] = this->allPoints[idxInAllPoints+cnt];
+	//	//}
+	//	//printf("%d ", this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID]);
+	//	tempPtr += this->cellBasedTrajectory[candidateTrajID[i]].numOfPointInCell[subID];
+	//}
+
 	for (int i = 0; i <= similarityScale-1; i++)
 	{
 		qTra[i] = tradb[47]; // length is 1024
