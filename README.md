@@ -13,3 +13,5 @@ Just directly execute the compiled and linked executive file.
 
 ## Process ##
 17/8/2: testing whether STIG works on multi-GPU environment
+
+17/8/7: add multi-thread CPU version of range query
