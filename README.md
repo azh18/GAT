@@ -8,6 +8,11 @@ Linux: `make all -jN`
 
 where N is the number of cores of your CPU
 
+## Configuration ##
+open multi-GPU mode: `#define USE_MULTIGPU` in ConstDefine.h
+
+parameters: in ConstDefine.h
+
 ## Run ##
 Just directly execute the compiled and linked executive file.
 
