@@ -1,5 +1,6 @@
 #include "FSG.h"
 #include "cudaKernel.h"
+#include "Grid.h"
 
 extern Trajectory* tradb;
 
@@ -342,6 +343,39 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 
 int FSG::rangeQueryBatchMultiGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * ResultTable, int * resultSetSize)
 {
+	MyTimer timer;
+	int device_num = 2;
+	std::vector<std::thread> threads_RQ;
+	int rangeNumGPU[2];
+	rangeNumGPU[0] = rangeNum / 2;
+	rangeNumGPU[1] = rangeNum - rangeNumGPU[0];
+	int startIdx[2];
+	startIdx[0] = 0;
+	startIdx[1] = rangeNumGPU[0];
+	void* allocatedGPUMem[2] = { NULL };
+	std::vector<RangeQueryStateTable> stateTableRange[2];
+	stateTableRange[0].resize(rangeNum * 1000);
+	stateTableRange[1].resize(rangeNum * 1000);
+
+	for (int device_idx = 0; device_idx <= device_num - 1; device_idx++)
+	{
+		// this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
+		CUDA_CALL(cudaSetDevice(device_idx));
+		CUDA_CALL(cudaMalloc((void**)&this->baseAddrRange[device_idx], (long long int)2048 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], 512 * 1024 * 1024));
+		allocatedGPUMem[device_idx] = this->baseAddrRange[device_idx];
+		threads_RQ.push_back(std::thread(std::mem_fn(&FSG::rangeQueryBatchGPU), this, &bounds[startIdx[device_idx
+		]], rangeNumGPU[device_idx], ResultTable, resultSetSize, &stateTableRange[device_idx][0], device_idx));
+	}
+	timer.start();
+	std::for_each(threads_RQ.begin(), threads_RQ.end(), std::mem_fn(&std::thread::join));
+	timer.stop();
+	std::cout << "Dual GPU Time:" << timer.elapse() << "ms" << std::endl;
+	for (int device_idx = 0; device_idx <= device_num - 1; device_idx++)
+	{
+		CUDA_CALL(cudaFree(allocatedGPUMem[device_idx]));
+		CUDA_CALL(cudaFree(this->stateTableGPU[device_idx]));
+	}
 	return 0;
 }
 
