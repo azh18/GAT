@@ -45,6 +45,7 @@ OBJECTS = \
 	SamplePoint.o\
 	Trajectory.o\
 	SystemTest.o\
+	FSG.o\
 	STIG.o
 
 
