@@ -50,15 +50,15 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	cout << "multi-core CPU Time:" << timer.elapse() << "ms" << endl;
 	
 
-	/*
+	FILE* fp = fopen("MCPUResult.txt", "w+");
 	for (int i = 0; i <= rangeQueryNum - 1;i++)
 	{
 		for (int traID = 1; traID <= this->g->trajNum; traID++) {
 			if (rangeQueryResultMultiCPU[i][traID])
-				printf("Query %d result: %d\n", i, traID);
+				fprintf(fp, "Query %d result: %d\n", i, traID);
 		}
 	}
-	*/
+	fclose(fp);
 
 	
 	printf("single GPU range query #query=%d:\n", rangeQueryNum);
@@ -177,7 +177,8 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaSetDevice(0));
 	this->rangeQueryMBB = rangeQueryMBB;
 	this->rangeQueryNum = rangeQueryNum;
-	CPURangeQueryResult* resultTable = NULL;
+	CPURangeQueryResult* resultTable = new CPURangeQueryResult[rangeQueryNum];
+	resultTable->resize(rangeQueryNum);
 	MBB mbbArray[5000];
 	int* resultSize = NULL;
 	for (int i = 0; i <= 4999; i++)
@@ -239,13 +240,13 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 {
 	this->rangeQueryMBB = rangeQueryMBB;
 	this->rangeQueryNum = rangeQueryNum;
-	CPURangeQueryResult* resultTable = NULL;
 	MBB mbbArray[5000];
 	int* resultSize = NULL;
 	for (int i = 0; i <= 4999; i++)
 		rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
 	MyTimer timer;
-
+	vector<CPURangeQueryResult> resultTable;
+	resultTable.resize(rangeQueryNum);
 
 	printf("single GPU FSG range query #query=%d:\n", rangeQueryNum);
 	CUDA_CALL(cudaSetDevice(0));
@@ -261,7 +262,7 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	vector<RangeQueryStateTable> stateTableRange;
 	stateTableRange.resize(rangeQueryNum * 1000);
 	timer.start();
-	fsg->rangeQueryBatchGPU(mbbArray, rangeQueryNum, resultTable, resultSize, &stateTableRange[0], 0);
+	fsg->rangeQueryBatchGPU(mbbArray, rangeQueryNum, &resultTable[0], resultSize, &stateTableRange[0], 0);
 	timer.stop();
 	cout << "Single GPU Time of FSG:" << timer.elapse() << "ms" << endl;
 	CUDA_CALL(cudaFree(allocatedGPUMem));
@@ -269,9 +270,18 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 
 #ifdef USE_MULTIGPU
 	printf("multi-GPU range query FSG #query=%d:\n", rangeQueryNum);
-	fsg->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
+	fsg->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, &resultTable[0], resultSize);
 #else
 
 #endif
+	FILE* fp = fopen("FSGResult.txt", "w+");
+	for (int i = 0; i <= rangeQueryNum - 1; i++)
+	{
+		for (int traID = 1; traID <= this->g->trajNum; traID++) {
+			if (resultTable[i][traID])
+				fprintf(fp, "Query %d result: %d\n", i, traID);
+		}
+	}
+	fclose(fp);
 	return 0;
 }

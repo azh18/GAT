@@ -144,6 +144,14 @@ int FSG::addDatasetToGrid(Trajectory * db, int traNum)
 
 int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * ResultTable, int * resultSetSize, RangeQueryStateTable * stateTableAllocate, int device_idx)
 {
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
+		ResultTable[i].resize(this->trajNum + 1);
+		for (int j = 0; j <= this->trajNum + 1; j++)
+		{
+			ResultTable[i][j] = 0;
+		}
+	}
 	// 分配GPU内存
 	//MyTimer timer;
 	// 参数随便设置的，可以再调
@@ -318,6 +326,16 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 	//		}
 	//	}
 	//}
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
+	{
+		for (int traID = 0; traID <= this->trajNum; traID++)
+		{
+			if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
+			{
+				ResultTable[jobID][traID] = TRUE;
+			}
+		}
+	}
 	//for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);
@@ -365,7 +383,7 @@ int FSG::rangeQueryBatchMultiGPU(MBB * bounds, int rangeNum, CPURangeQueryResult
 		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], 512 * 1024 * 1024));
 		allocatedGPUMem[device_idx] = this->baseAddrRange[device_idx];
 		threads_RQ.push_back(std::thread(std::mem_fn(&FSG::rangeQueryBatchGPU), this, &bounds[startIdx[device_idx
-		]], rangeNumGPU[device_idx], ResultTable, resultSetSize, &stateTableRange[device_idx][0], device_idx));
+		]], rangeNumGPU[device_idx], &ResultTable[startIdx[1]], resultSetSize, &stateTableRange[device_idx][0], device_idx));
 	}
 	timer.start();
 	std::for_each(threads_RQ.begin(), threads_RQ.end(), std::mem_fn(&std::thread::join));
