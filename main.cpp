@@ -64,7 +64,7 @@ int main()
 
 
 	cout << "build cell index success!" << endl;
-	delete[] tradb;
+	//delete[] tradb;
 	int count = 0;
 	//for (int i = 0; i <= g->cellnum - 1; i++)
 	//{
@@ -77,10 +77,10 @@ int main()
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 
 	SystemTest test(tradb, g, stig, fsg);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
-	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
-	//test.similarityQueryTest(47, 2, 30);
+	//test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	//test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	//test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	test.similarityQueryTest(47, 2, 30);
 	
 	printf("Finished.\n");
 	//CPURangeQueryResult* resultTable = NULL;

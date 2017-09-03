@@ -96,24 +96,25 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 {
 	baseAddrGPU = NULL;
 	Trajectory* qTra = new Trajectory[similarityScale];
-	qTra->points.resize(this->g->cellBasedTrajectory[queryTrajNo].trajLength);
-	// form query trajectories
-	int cnt = 0;
-	qTra->length = this->g->cellBasedTrajectory[queryTrajNo].trajLength;
-	qTra->tid = queryTrajNo;
+	for (int j = 0; j <= similarityScale - 1; j++) {
+		qTra[j].points.resize(this->g->cellBasedTrajectory[queryTrajNo].trajLength);
+		// form query trajectories
+		int cnt = 0;
+		qTra[j].length = this->g->cellBasedTrajectory[queryTrajNo].trajLength;
+		qTra[j].tid = queryTrajNo;
 
-	for (int subID = 0; subID <= this->g->cellBasedTrajectory[queryTrajNo].length - 1; subID++)
-	{
-		int idxInAllPoints = this->g->cellBasedTrajectory[queryTrajNo].startIdx[subID];
-		for (int pidx = 0; pidx <= this->g->cellBasedTrajectory[queryTrajNo].numOfPointInCell[subID] - 1;pidx++)
+		for (int subID = 0; subID <= this->g->cellBasedTrajectory[queryTrajNo].length - 1; subID++)
 		{
-			qTra->points[cnt + pidx].lat = this->g->allPoints[idxInAllPoints + pidx].y;
-			qTra->points[cnt + pidx].lon = this->g->allPoints[idxInAllPoints + pidx].x;
-			qTra->points[cnt + pidx].tid = this->g->allPoints[idxInAllPoints + pidx].tID;
+			int idxInAllPoints = this->g->cellBasedTrajectory[queryTrajNo].startIdx[subID];
+			for (int pidx = 0; pidx <= this->g->cellBasedTrajectory[queryTrajNo].numOfPointInCell[subID] - 1; pidx++)
+			{
+				qTra[j].points[cnt + pidx].lat = this->g->allPoints[idxInAllPoints + pidx].y;
+				qTra[j].points[cnt + pidx].lon = this->g->allPoints[idxInAllPoints + pidx].x;
+				qTra[j].points[cnt + pidx].tid = this->g->allPoints[idxInAllPoints + pidx].tID;
+			}
+			cnt += this->g->cellBasedTrajectory[queryTrajNo].numOfPointInCell[subID];
 		}
-		cnt += this->g->cellBasedTrajectory[queryTrajNo].numOfPointInCell[subID];
 	}
-
 	//for (int i = 0; i <= similarityScale-1; i++)
 	//{
 	//	qTra[i] = tradb[47]; // length is 1024
@@ -130,14 +131,14 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 	printf("multi-core CPU similarity @ k=%d and #query=%d:\n",similarityKValue,similarityScale);
 	g->SimilarityQueryBatchCPUParallel(qTra, similarityScale, simiResult, similarityKValue);
 
-	/*	
+	
 	for (int i = 0; i <= similarityScale-1; i++) {
 		cout << "Trajectory:" << i << endl;
 		for (int j = 0; j <= similarityKValue-1; j++) {
 			cout << simiResult[i * similarityKValue + j] << "\t" << endl;
 		}
 	}
-	*/
+	
 	
 	delete[] simiResult;
 
