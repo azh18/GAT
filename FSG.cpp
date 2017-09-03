@@ -147,7 +147,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		ResultTable[i].resize(this->trajNum + 1);
-		for (int j = 0; j <= this->trajNum + 1; j++)
+		for (int j = 0; j <= this->trajNum; j++)
 		{
 			ResultTable[i][j] = 0;
 		}

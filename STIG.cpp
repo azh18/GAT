@@ -253,6 +253,14 @@ int STIG::searchNode(MBB queryMBB, std::vector<STIGBlock>* allCandBlocks, LeafNo
 
 int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize, int device_idx)
 {
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
+		ResultTable[i].resize(this->maxTid + 1);
+		for (int j = 0; j <= this->maxTid; j++)
+		{
+			ResultTable[i][j] = 0;
+		}
+	}
 	// search all blocks should be sent to GPU
 	CUDA_CALL(cudaSetDevice(device_idx));
 	cudaStream_t stream;
@@ -305,6 +313,17 @@ int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTa
 	//		}
 	//	}
 	//}
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
+	{
+		for (int traID = 0; traID <= this->maxTid; traID++)
+		{
+			if (resultsReturned[jobID * (this->maxTid + 1) + traID] == 1)
+			{
+				ResultTable[jobID][traID] = TRUE;
+			}
+		}
+	}
+
 	delete[] resultsReturned;
 	cudaStreamDestroy(stream);
 	return 0;

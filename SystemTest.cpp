@@ -177,8 +177,8 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaSetDevice(0));
 	this->rangeQueryMBB = rangeQueryMBB;
 	this->rangeQueryNum = rangeQueryNum;
-	CPURangeQueryResult* resultTable = new CPURangeQueryResult[rangeQueryNum];
-	resultTable->resize(rangeQueryNum);
+	vector<CPURangeQueryResult> resultTable;
+	resultTable.resize(rangeQueryNum);
 	MBB mbbArray[5000];
 	int* resultSize = NULL;
 	for (int i = 0; i <= 4999; i++)
@@ -193,7 +193,7 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[0], 512 * 1024 * 1024));
 	allocatedGPUMemS = this->stig->baseAddrGPU[0];
 	timer.start();
-	stig->rangeQueryGPU(mbbArray, rangeQueryNum, resultTable, resultSize, 0);
+	stig->rangeQueryGPU(mbbArray, rangeQueryNum, &resultTable[0], resultSize, 0);
 	timer.stop();
 	cout << "single GPU Time of STIG:" << timer.elapse() << "ms" << endl;
 	CUDA_CALL(cudaFree(allocatedGPUMemS));
@@ -218,7 +218,7 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 		CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[device_idx], 512 * 1024 * 1024));
 		allocatedGPUMem[device_idx] = this->stig->baseAddrGPU[device_idx];
 		threads_RQ.push_back(thread(std::mem_fn(&STIG::rangeQueryGPU), this->stig, &mbbArray[startIdx[device_idx
-		]], rangeNumGPU[device_idx], resultTable, resultSize, device_idx));
+		]], rangeNumGPU[device_idx], &resultTable[startIdx[1]], resultSize, device_idx));
 	}
 	timer.start();
 	std::for_each(threads_RQ.begin(), threads_RQ.end(), std::mem_fn(&std::thread::join));
@@ -232,7 +232,15 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 #else
 
 #endif
-
+	FILE* fp = fopen("STIGResult.txt", "w+");
+	for (int i = 0; i <= rangeQueryNum - 1; i++)
+	{
+		for (int traID = 1; traID <= this->stig->maxTid; traID++) {
+			if (resultTable[i][traID])
+				fprintf(fp, "Query %d result: %d\n", i, traID);
+		}
+	}
+	fclose(fp);
 	return 0;
 }
 
@@ -277,7 +285,7 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	FILE* fp = fopen("FSGResult.txt", "w+");
 	for (int i = 0; i <= rangeQueryNum - 1; i++)
 	{
-		for (int traID = 1; traID <= this->g->trajNum; traID++) {
+		for (int traID = 1; traID <= this->fsg->trajNum; traID++) {
 			if (resultTable[i][traID])
 				fprintf(fp, "Query %d result: %d\n", i, traID);
 		}
