@@ -12,11 +12,12 @@ SystemTest::~SystemTest()
 {
 }
 
-SystemTest::SystemTest(Trajectory* tradb, Grid* g, STIG *stig)
+SystemTest::SystemTest(Trajectory* tradb, Grid* g, STIG *stig, FSG* fsg)
 {
 	this->tradb = tradb;
 	this->g = g;
 	this->stig = stig;
+	this->fsg = fsg;
 }
 
 int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
@@ -230,5 +231,46 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 
 #endif
 
+	return 0;
+}
+
+int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
+{
+	this->rangeQueryMBB = rangeQueryMBB;
+	this->rangeQueryNum = rangeQueryNum;
+	CPURangeQueryResult* resultTable = NULL;
+	MBB mbbArray[5000];
+	int* resultSize = NULL;
+	for (int i = 0; i <= 4999; i++)
+		rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
+	MyTimer timer;
+
+
+	printf("single GPU FSG range query #query=%d:\n", rangeQueryNum);
+	CUDA_CALL(cudaSetDevice(0));
+
+#ifdef WIN32
+	CUDA_CALL(cudaMalloc((void**)(&fsg->baseAddrRange[0]), (long long int)512 * 1024 * 1024));
+#else
+	CUDA_CALL(cudaMalloc((void**)(&fsg->baseAddrRange[0]), (long long int)2048 * 1024 * 1024));
+#endif
+
+	void *allocatedGPUMem = fsg->baseAddrRange[0];
+	CUDA_CALL(cudaMalloc((void**)&fsg->stateTableGPU[0], 512 * 1024 * 1024));
+	vector<RangeQueryStateTable> stateTableRange;
+	stateTableRange.resize(rangeQueryNum * 1000);
+	timer.start();
+	fsg->rangeQueryBatchGPU(mbbArray, rangeQueryNum, resultTable, resultSize, &stateTableRange[0], 0);
+	timer.stop();
+	cout << "Single GPU Time of FSG:" << timer.elapse() << "ms" << endl;
+	CUDA_CALL(cudaFree(allocatedGPUMem));
+	CUDA_CALL(cudaFree(fsg->stateTableGPU[0]));
+
+#ifdef USE_MULTIGPU
+	printf("multi-GPU range query FSG #query=%d:\n", rangeQueryNum);
+	fsg->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
+#else
+
+#endif
 	return 0;
 }

@@ -59,25 +59,30 @@ int main()
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	STIG *stig = new STIG();
 	stig->initial(1024, 2, tradb, pp.maxTid);
+	FSG *fsg = new FSG(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
+	fsg->addDatasetToGrid(tradb, pp.maxTid);
+
+
 	cout << "build cell index success!" << endl;
 	delete[] tradb;
 	int count = 0;
-	for (int i = 0; i <= g->cellnum - 1; i++)
-	{
-		if (g->cellPtr[i].subTraNum == 0)
-			count++;
-	}
-	cout << "zero num:" << count << "total" << g->cellnum << endl;
+	//for (int i = 0; i <= g->cellnum - 1; i++)
+	//{
+	//	if (g->cellPtr[i].subTraNum == 0)
+	//		count++;
+	//}
+	//cout << "zero num:" << count << "total" << g->cellnum << endl;
 	//int temp[7] = { 553,554,555,556,557,558,559 };
 	//int sizetemp = 7;
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 
-	SystemTest test(tradb, g,stig);
-	//test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
-	//test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
-	test.similarityQueryTest(47, 2, 30);
+	SystemTest test(tradb, g, stig, fsg);
+	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	//test.similarityQueryTest(47, 2, 30);
 	
-
+	printf("Finished.\n");
 	//CPURangeQueryResult* resultTable = NULL;
 	//int RangeQueryResultSize = 0;
 	//MBB mbbArray[1000];
@@ -153,14 +158,8 @@ int main()
 	*/
 
 
-	ofstream ftest;
-	ftest.open("ftest.txt", ios_base::out);
-	ftest << g->totalPointNum << endl;
-	for (int i = 0; i <= g->cellnum - 1; i++)
-	{
-		ftest << g->cellPtr[i].totalPointNum << ",";
-	}
-	ftest << endl;
+	//ofstream ftest;
+
 
 
 
