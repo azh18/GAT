@@ -143,7 +143,8 @@ int Grid::addTrajectoryIntoCell(Trajectory& t)
 				tempCellNum++;
 				tempCellBasedTraj->push_back(nowCellNo);
 				cellPtr[nowCellNo].addSubTra(t.tid, lastCellStartIdx, i, i - lastCellStartIdx + 1);
-				this->freqVectors.addPointToFVTable(t.tid, i - lastCellStartIdx + 1, nowCellNo);
+				int vituralCellNo = nowCellNo >> 2; //虚格子
+				this->freqVectors.addPointToFVTable(t.tid, i - lastCellStartIdx + 1, vituralCellNo);
 			}
 			//否则，上一个和这个cell都要添加
 			else
@@ -152,9 +153,11 @@ int Grid::addTrajectoryIntoCell(Trajectory& t)
 				tempCellBasedTraj->push_back(lastCellNo);
 				tempCellBasedTraj->push_back(nowCellNo);
 				cellPtr[lastCellNo].addSubTra(t.tid, lastCellStartIdx, i - 1, i - 1 - lastCellStartIdx + 1);
-				this->freqVectors.addPointToFVTable(t.tid, i - 1 - lastCellStartIdx + 1, lastCellNo);
+				int vituralCellNo = lastCellNo >> 2; //虚格子
+				this->freqVectors.addPointToFVTable(t.tid, i - 1 - lastCellStartIdx + 1, vituralCellNo);
 				cellPtr[nowCellNo].addSubTra(t.tid, i, i, 1);
-				this->freqVectors.addPointToFVTable(t.tid, 1, nowCellNo);
+				vituralCellNo = nowCellNo >> 2;
+				this->freqVectors.addPointToFVTable(t.tid, 1, vituralCellNo);
 			}
 		}
 		else
@@ -170,8 +173,8 @@ int Grid::addTrajectoryIntoCell(Trajectory& t)
 				//SubTra添加
 				//printf("cell:%d\n", lastCellNo);
 				cellPtr[lastCellNo].addSubTra(t.tid, lastCellStartIdx, i - 1, i - 1 - lastCellStartIdx + 1);
-
-				this->freqVectors.addPointToFVTable(t.tid, i - 1 - lastCellStartIdx + 1, lastCellNo);
+				int vituralCellNo = lastCellNo >> 2; //虚格子
+				this->freqVectors.addPointToFVTable(t.tid, i - 1 - lastCellStartIdx + 1, vituralCellNo);
 				lastCellNo = nowCellNo;
 				lastCellStartIdx = i;
 			}
@@ -202,7 +205,7 @@ int Grid::addDatasetToGrid(Trajectory* db, int traNum)
 {
 	this->trajNum = traNum;
 	//生成frequency vector
-	this->freqVectors.initFVTable(traNum, this->cellnum);
+	this->freqVectors.initFVTable(traNum, (this->cellnum)>>2); //注意这里是虚格子的个数
 	//注意，轨迹编号从1开始
 	this->cellBasedTrajectory.resize(traNum + 1); //扩大cellbasedtraj的规模，加轨迹的时候可以直接用
 	int pointCount = 0;
@@ -604,14 +607,16 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 		for (int pID = 0; pID <= qTra[qID].length - 1; pID++)
 		{
 			int cellid = WhichCellPointIn(SamplePoint(qTra[qID].points[pID].lon, qTra[qID].points[pID].lat, 1, 1));
-			map<int, int>::iterator iter = freqVectors[qID].find(cellid);
+			int vituralCellNo = cellid >> 2; //虚格子
+			map<int, int>::iterator iter = freqVectors[qID].find(vituralCellNo);
+			
 			if (iter == freqVectors[qID].end())
 			{
-				freqVectors[qID].insert(pair<int, int>(cellid, 1));
+				freqVectors[qID].insert(pair<int, int>(vituralCellNo, 1));
 			}
 			else
 			{
-				freqVectors[qID][cellid] = freqVectors[qID][cellid] + 1;
+				freqVectors[qID][vituralCellNo] = freqVectors[qID][vituralCellNo] + 1;
 			}
 		}
 	}
@@ -883,14 +888,15 @@ int Grid::SimilarityQueryBatchCPUParallel(Trajectory* qTra, int queryTrajNum, in
 		for (int pID = 0; pID <= qTra[qID].length - 1; pID++)
 		{
 			int cellid = WhichCellPointIn(SamplePoint(qTra[qID].points[pID].lon, qTra[qID].points[pID].lat, 1, 1));
-			map<int, int>::iterator iter = freqVectors[qID].find(cellid);
+			int vituralCellNo = cellid >> 2; //虚格子
+			map<int, int>::iterator iter = freqVectors[qID].find(vituralCellNo);
 			if (iter == freqVectors[qID].end())
 			{
-				freqVectors[qID].insert(pair<int, int>(cellid, 1));
+				freqVectors[qID].insert(pair<int, int>(vituralCellNo, 1));
 			}
 			else
 			{
-				freqVectors[qID][cellid] = freqVectors[qID][cellid] + 1;
+				freqVectors[qID][vituralCellNo] = freqVectors[qID][vituralCellNo] + 1;
 			}
 		}
 	}
@@ -1072,14 +1078,15 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 		for (int pID = 0; pID <= qTra[qID].length - 1; pID++)
 		{
 			int cellid = WhichCellPointIn(SamplePoint(qTra[qID].points[pID].lon, qTra[qID].points[pID].lat, 1, 1));
-			map<int, int>::iterator iter = freqVectors[qID].find(cellid);
+			int vituralCellNo = cellid >> 2; //虚格子
+			map<int, int>::iterator iter = freqVectors[qID].find(vituralCellNo);
 			if (iter == freqVectors[qID].end())
 			{
-				freqVectors[qID].insert(pair<int, int>(cellid, 1));
+				freqVectors[qID].insert(pair<int, int>(vituralCellNo, 1));
 			}
 			else
 			{
-				freqVectors[qID][cellid] = freqVectors[qID][cellid] + 1;
+				freqVectors[qID][vituralCellNo] = freqVectors[qID][vituralCellNo] + 1;
 			}
 		}
 	}
@@ -1520,14 +1527,15 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 		for (int pID = 0; pID <= qTra[qID].length - 1; pID++)
 		{
 			int cellid = WhichCellPointIn(SamplePoint(qTra[qID].points[pID].lon, qTra[qID].points[pID].lat, 1, 1));
-			map<int, int>::iterator iter = freqVectors[qID].find(cellid);
+			int vituralCellNo = cellid >> 2; //虚格子
+			map<int, int>::iterator iter = freqVectors[qID].find(vituralCellNo);
 			if (iter == freqVectors[qID].end())
 			{
-				freqVectors[qID].insert(pair<int, int>(cellid, 1));
+				freqVectors[qID].insert(pair<int, int>(vituralCellNo, 1));
 			}
 			else
 			{
-				freqVectors[qID][cellid] = freqVectors[qID][cellid] + 1;
+				freqVectors[qID][vituralCellNo] = freqVectors[qID][vituralCellNo] + 1;
 			}
 		}
 	}

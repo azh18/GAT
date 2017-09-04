@@ -132,14 +132,14 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 	printf("multi-core CPU similarity @ k=%d and #query=%d:\n",similarityKValue,similarityScale);
 	g->SimilarityQueryBatchCPUParallel(qTra, similarityScale, simiResult, similarityKValue);
 
-	/*	
+	
 	for (int i = 0; i <= similarityScale-1; i++) {
 		cout << "Trajectory:" << i << endl;
 		for (int j = 0; j <= similarityKValue-1; j++) {
 			cout << simiResult[i * similarityKValue + j] << "\t" << endl;
 		}
 	}
-	*/
+	
 	
 	delete[] simiResult;
 
@@ -157,7 +157,7 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 
 #endif
 	
-	/*
+	
 	for (int i = 0; i <= similarityScale-1; i++)
 	{
 		cout << "Trajectory:" << i << endl;
@@ -166,7 +166,7 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 			cout << simiResult[i * similarityKValue + j] << "\t" << endl;
 		}
 	}
-	*/
+	
 	
 	delete[] simiResult;
 	delete[] qTra;

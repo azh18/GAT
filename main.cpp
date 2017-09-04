@@ -55,11 +55,11 @@ int main()
 	//	printf("%d,%d\t", i, tradb[i].length);
 	//}
 
-	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
+	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.025);
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	STIG *stig = new STIG();
 	stig->initial(1024, 2, tradb, pp.maxTid);
-	FSG *fsg = new FSG(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.05);
+	FSG *fsg = new FSG(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), 0.025);
 	fsg->addDatasetToGrid(tradb, pp.maxTid);
 
 
