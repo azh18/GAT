@@ -1,7 +1,7 @@
 #pragma once
 // MODE DEFINE
 
-//#define USE_MULTIGPU
+#define USE_MULTIGPU
 #define CHECK_CORRECT
 
 //GPU mem alloc
@@ -14,7 +14,7 @@
 #endif
 
 
-#define MAX_TRAJ_SIZE 50000
+#define MAX_TRAJ_SIZE 500000
 //受到GPU可用的shared memory限制
 #define MAXLENGTH 1024
 //MAXGAP是最大轨迹内时间间隔，如果超过这个间隔应该被视为两条轨迹

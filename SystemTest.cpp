@@ -28,7 +28,8 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	MBB mbbArray[5000];
 	int* resultSize = NULL;
 	for (int i = 0; i <= 4999; i++)
-		rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
+		//rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
+		mbbArray[i] = rangeQueryMBB;
 	MyTimer timer;
 
 	
@@ -131,14 +132,14 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 	printf("multi-core CPU similarity @ k=%d and #query=%d:\n",similarityKValue,similarityScale);
 	g->SimilarityQueryBatchCPUParallel(qTra, similarityScale, simiResult, similarityKValue);
 
-	
+	/*	
 	for (int i = 0; i <= similarityScale-1; i++) {
 		cout << "Trajectory:" << i << endl;
 		for (int j = 0; j <= similarityKValue-1; j++) {
 			cout << simiResult[i * similarityKValue + j] << "\t" << endl;
 		}
 	}
-	
+	*/
 	
 	delete[] simiResult;
 
@@ -251,7 +252,8 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	MBB mbbArray[5000];
 	int* resultSize = NULL;
 	for (int i = 0; i <= 4999; i++)
-		rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
+		//rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
+		mbbArray[i] = rangeQueryMBB;
 	MyTimer timer;
 	vector<CPURangeQueryResult> resultTable;
 	resultTable.resize(rangeQueryNum);
