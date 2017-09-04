@@ -45,7 +45,7 @@ int main()
 	//PreProcess pp("SH_0.txt", "dataout.txt");
 	//pp.writeTraDataToFile("SH_0_OUT.txt");
 	PreProcess pp;
-	pp.readTraFromFormatedFile("SH_full_OUT.txt");
+	pp.readTraFromFormatedFile("SH_0_OUT.txt");
 
 	//cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
