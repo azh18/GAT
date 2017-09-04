@@ -79,7 +79,11 @@ int main()
 	SystemTest test(tradb, g, stig, fsg);
 	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
 	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 300);
+	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 400);
 	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
+	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 300);
+	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 400);
 	test.similarityQueryTest(47, 2, 30);
 	
 	printf("Finished.\n");

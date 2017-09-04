@@ -626,6 +626,7 @@ int Grid::SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimi
 		threads_FD.push_back(thread(std::mem_fn(&Grid::FDCalculateParallelHandeler), this, &queryQueue[qID], &freqVectors[qID]));
 	}
 	std::for_each(threads_FD.begin(), threads_FD.end(), std::mem_fn(&std::thread::join));
+	timer.stop();
 	cout << "Part2 time:" << timer.elapse() << endl;
 	//用一个优先队列存储当前最优结果，大顶堆，保证随时可以pop出差的结果
 	priority_queue<FDwithID, vector<FDwithID>, cmpBig>* EDRCalculated = new priority_queue<FDwithID, vector<FDwithID>, cmpBig>[queryTrajNum];

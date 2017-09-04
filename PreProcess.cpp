@@ -254,6 +254,7 @@ bool PreProcess::readTraFromFormatedFile(string outFileName)
 			this->xmax = std::atof(num);
 			num = strtok(NULL, ",");
 			this->ymax = std::atof(num);
+			free(thisLineStr);
 		}
 		else if(cnt ==2) 
 		{
@@ -270,6 +271,7 @@ bool PreProcess::readTraFromFormatedFile(string outFileName)
 				tradb[i].length = std::atoi(num);
 				tradb[i].points.resize(tradb[i].length);
 			}
+			free(thisLineStr);
 		}
 		else
 		{
@@ -305,6 +307,7 @@ bool PreProcess::readTraFromFormatedFile(string outFileName)
 				}
 
 			}
+			free(thisLineStr);
 		}
 		cnt++;
 	}
