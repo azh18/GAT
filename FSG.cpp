@@ -379,8 +379,8 @@ int FSG::rangeQueryBatchMultiGPU(MBB * bounds, int rangeNum, CPURangeQueryResult
 	{
 		// this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
 		CUDA_CALL(cudaSetDevice(device_idx));
-		CUDA_CALL(cudaMalloc((void**)&this->baseAddrRange[device_idx], (long long int)2048 * 1024 * 1024));
-		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], 512 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->baseAddrRange[device_idx], (long long int)BIG_MEM * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], (long long int)SMALL_MEM * 1024 * 1024));
 		allocatedGPUMem[device_idx] = this->baseAddrRange[device_idx];
 		threads_RQ.push_back(std::thread(std::mem_fn(&FSG::rangeQueryBatchGPU), this, &bounds[startIdx[device_idx
 		]], rangeNumGPU[device_idx], &ResultTable[startIdx[1]], resultSetSize, &stateTableRange[device_idx][0], device_idx));

@@ -1,6 +1,15 @@
 #pragma once
 //#define USE_MULTIGPU
 
+//GPU mem alloc
+#ifdef WIN32
+#define BIG_MEM 1024
+#define SMALL_MEM 256
+#else
+#define BIG_MEM 7000
+#define SMALL_MEM 3000
+#endif
+
 #define MAX_TRAJ_SIZE 50000
 //受到GPU可用的shared memory限制
 #define MAXLENGTH 1024

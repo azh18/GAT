@@ -526,8 +526,8 @@ int Grid::rangeQueryBatchMultiGPU(MBB* bounds, int rangeNum, CPURangeQueryResult
 	{
 		// this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
 		CUDA_CALL(cudaSetDevice(device_idx));
-		CUDA_CALL(cudaMalloc((void**)&this->baseAddrRange[device_idx], (long long int)2048 * 1024 * 1024));
-		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], 512 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->baseAddrRange[device_idx], (long long int)BIG_MEM * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], (long long int)SMALL_MEM * 1024 * 1024));
 		allocatedGPUMem[device_idx] = this->baseAddrRange[device_idx];
 		threads_RQ.push_back(thread(std::mem_fn(&Grid::rangeQueryBatchGPU), this, &bounds[startIdx[device_idx
 		]], rangeNumGPU[device_idx], ResultTable, resultSetSize, &stateTableRange[device_idx][0], device_idx));
@@ -1049,9 +1049,9 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 //所有（批量）query级别上的GPU并行
 //备用思路：分别处理每一条查询轨迹，用不同stream并行
 {
-	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), 768 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&baseAddrGPU), (long long int)BIG_MEM * 1024 * 1024));
 	void* whileAddrGPU = NULL;
-	CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU), 256 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU), (long long int)SMALL_MEM * 1024 * 1024));
 	void* whileAddrGPUBase = whileAddrGPU;
 	//当前分配到的地址
 	void* nowAddrGPU = NULL;
@@ -1473,6 +1473,7 @@ int Grid::SimilarityQueryBatchOnGPU(Trajectory* qTra, int queryTrajNum, int* top
 	delete[] queryQueue;
 	delete[] queryTraLength;
 	CUDA_CALL(cudaFree(baseAddrGPU));
+	CUDA_CALL(cudaFree(whileAddrGPUBase));
 	cudaStreamDestroy(defaultStream);
 	return 0;
 }
@@ -1494,8 +1495,8 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 	for (int device_idx = 0; device_idx <= num_devices - 1; device_idx++)
 	{
 		CUDA_CALL(cudaSetDevice(device_idx));
-		CUDA_CALL(cudaMalloc((void**)(&baseAddrSimi[device_idx]), (long long int)2048 * 1024 * 1024));
-		CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU[device_idx]), (long long int)2048 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)(&baseAddrSimi[device_idx]), (long long int)BIG_MEM * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)(&whileAddrGPU[device_idx]), (long long int)SMALL_MEM * 1024 * 1024));
 		whileAddrGPUBase[device_idx] = whileAddrGPU[device_idx];
 		nowAddrGPU[device_idx] = baseAddrSimi[device_idx];
 		cudaStreamCreate(&defaultStream[device_idx]);

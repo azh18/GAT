@@ -65,13 +65,13 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaSetDevice(0));
 
 #ifdef WIN32
-	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)512 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
 #else
-	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)2048 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
 #endif
 
 	void *allocatedGPUMem = g->baseAddrRange[0];
-	CUDA_CALL(cudaMalloc((void**)&g->stateTableGPU[0], 512 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)&g->stateTableGPU[0], (long long int)SMALL_MEM * 1024 * 1024));
 	vector<RangeQueryStateTable> stateTableRange;
 	stateTableRange.resize(rangeQueryNum * 1000);
 	timer.start();
@@ -189,8 +189,8 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	printf("single GPU STIG range query #query=%d:\n", rangeQueryNum);
 
 	void* allocatedGPUMemS = 0;
-	CUDA_CALL(cudaMalloc((void**)&this->stig->baseAddrGPU[0], (long long int)512 * 1024 * 1024));
-	CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[0], 512 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)&this->stig->baseAddrGPU[0], (long long int)BIG_MEM * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[0], (long long int)SMALL_MEM * 1024 * 1024));
 	allocatedGPUMemS = this->stig->baseAddrGPU[0];
 	timer.start();
 	stig->rangeQueryGPU(mbbArray, rangeQueryNum, &resultTable[0], resultSize, 0);
@@ -214,8 +214,8 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	{
 		// this->freqVectors.formPriorityQueue(&queryQueue[qID], &freqVectors[qID]);
 		CUDA_CALL(cudaSetDevice(device_idx));
-		CUDA_CALL(cudaMalloc((void**)&this->stig->baseAddrGPU[device_idx], (long long int)2048 * 1024 * 1024));
-		CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[device_idx], 512 * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->stig->baseAddrGPU[device_idx], (long long int)BIG_MEM * 1024 * 1024));
+		CUDA_CALL(cudaMalloc((void**)&this->stig->stateTableGPU[device_idx], (long long int)SMALL_MEM * 1024 * 1024));
 		allocatedGPUMem[device_idx] = this->stig->baseAddrGPU[device_idx];
 		threads_RQ.push_back(thread(std::mem_fn(&STIG::rangeQueryGPU), this->stig, &mbbArray[startIdx[device_idx
 		]], rangeNumGPU[device_idx], &resultTable[startIdx[1]], resultSize, device_idx));
@@ -260,13 +260,13 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaSetDevice(0));
 
 #ifdef WIN32
-	CUDA_CALL(cudaMalloc((void**)(&fsg->baseAddrRange[0]), (long long int)512 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&fsg->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
 #else
-	CUDA_CALL(cudaMalloc((void**)(&fsg->baseAddrRange[0]), (long long int)2048 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)(&fsg->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
 #endif
 
 	void *allocatedGPUMem = fsg->baseAddrRange[0];
-	CUDA_CALL(cudaMalloc((void**)&fsg->stateTableGPU[0], 512 * 1024 * 1024));
+	CUDA_CALL(cudaMalloc((void**)&fsg->stateTableGPU[0], (long long int)SMALL_MEM * 1024 * 1024));
 	vector<RangeQueryStateTable> stateTableRange;
 	stateTableRange.resize(rangeQueryNum * 1000);
 	timer.start();

@@ -80,7 +80,7 @@ int main()
 	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
 	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
 	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 200);
-	//test.similarityQueryTest(47, 2, 30);
+	test.similarityQueryTest(47, 2, 30);
 	
 	printf("Finished.\n");
 	//CPURangeQueryResult* resultTable = NULL;
