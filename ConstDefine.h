@@ -16,8 +16,8 @@
 #define SMALL_MEM 3000
 #endif
 
-#define CELL_LEN 0.025 //cell边长大小
-#define VITURAL_CELL_PARAM 2 //虚格子的放大系数，控制虚格子的大小
+#define CELL_LEN 0.0125 //cell边长大小
+#define VITURAL_CELL_PARAM 4 //虚格子的放大系数，控制虚格子的大小
 
 #define MAX_TRAJ_SIZE 500000
 //受到GPU可用的shared memory限制

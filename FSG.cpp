@@ -272,7 +272,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 			this->stateTableRange[device_idx] = this->stateTableRange[device_idx] + 1;
 			this->stateTableLength[device_idx] = this->stateTableLength[device_idx] + 1;
 		}
-		/*
+		
 		for (int i = 0; i <= DirectresultSize - 1; i++)
 		{
 			int startIdx = this->cellPtr[directResultsCellID[i]].pointRangeStart;
@@ -290,7 +290,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 			this->stateTableRange[device_idx] = this->stateTableRange[device_idx] + 1;
 			this->stateTableLength[device_idx] = this->stateTableLength[device_idx] + 1;
 		}
-		*/
+		/*
 		//直接是结果的，可以全部写进结果中
 		for (int i = 0; i <= DirectresultSize - 1; i++)
 		{
@@ -299,6 +299,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 			for (int idx = startIdx; idx < startIdx + pointNum; idx++)
 				ResultTable[j][this->allPoints[idx].tID] = TRUE;
 		}
+		*/
 	}
 	//printf("StateTableLength:%d",this->stateTableLength);
 	//stateTable中点的数目的最大值
