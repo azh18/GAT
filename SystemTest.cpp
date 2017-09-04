@@ -245,6 +245,8 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	return 0;
 }
 
+
+//FSG如果查询数量多于80则显存会不足，因此如果多于80就拆分成几个查询
 int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 {
 	this->rangeQueryMBB = rangeQueryMBB;
@@ -271,8 +273,14 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	CUDA_CALL(cudaMalloc((void**)&fsg->stateTableGPU[0], (long long int)SMALL_MEM * 1024 * 1024));
 	vector<RangeQueryStateTable> stateTableRange;
 	stateTableRange.resize(rangeQueryNum * 1000);
+	//FSG如果查询数量多于80则显存会不足，因此如果多于80就拆分成几个查询
+	const int ONCE_QUERY_NUM = 50;
 	timer.start();
-	fsg->rangeQueryBatchGPU(mbbArray, rangeQueryNum, &resultTable[0], resultSize, &stateTableRange[0], 0);
+	for (int queryIdx = 0; queryIdx < rangeQueryNum; queryIdx += ONCE_QUERY_NUM) {
+		int querySize = (queryIdx + ONCE_QUERY_NUM < rangeQueryNum) ? ONCE_QUERY_NUM : rangeQueryNum - queryIdx;
+		fsg->baseAddrRange[0] = allocatedGPUMem;
+		fsg->rangeQueryBatchGPU(&mbbArray[queryIdx], querySize, &resultTable[queryIdx], resultSize, &stateTableRange[queryIdx], 0);
+	}
 	timer.stop();
 	cout << "Single GPU Time of FSG:" << timer.elapse() << "ms" << endl;
 	CUDA_CALL(cudaFree(allocatedGPUMem));
