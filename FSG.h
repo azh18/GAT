@@ -28,7 +28,7 @@ public:
 	void *baseAddrRange[2];
 	void *stateTableGPU[2];
 	RangeQueryStateTable* stateTableRange[2];
-	//std::map<int, void*> nodeAddrTable[2];
+	std::map<int, void*> nodeAddrTable[2];
 	int stateTableLength[2];
 	//int nodeAddrTableLength[2];
 
