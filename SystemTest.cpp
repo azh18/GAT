@@ -51,19 +51,13 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	cout << "multi-core CPU Time:" << timer.elapse() << "ms" << endl;
 	
 
-	FILE* fp = fopen("MCPUResult.txt", "w+");
-	for (int i = 0; i <= rangeQueryNum - 1;i++)
-	{
-		for (int traID = 1; traID <= this->g->trajNum; traID++) {
-			if (rangeQueryResultMultiCPU[i][traID])
-				fprintf(fp, "Query %d result: %d\n", i, traID);
-		}
-	}
-	fclose(fp);
+
 
 	
 	printf("single GPU range query #query=%d:\n", rangeQueryNum);
 	CUDA_CALL(cudaSetDevice(0));
+	vector<CPURangeQueryResult> rangeQueryResultGPU;
+	rangeQueryResultGPU.resize(rangeQueryNum);
 
 #ifdef WIN32
 	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
@@ -76,15 +70,27 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	vector<RangeQueryStateTable> stateTableRange;
 	stateTableRange.resize(rangeQueryNum * 1000);
 	timer.start();
-	g->rangeQueryBatchGPU(mbbArray, rangeQueryNum, resultTable, resultSize, &stateTableRange[0], 0);
+	g->rangeQueryBatchGPU(mbbArray, rangeQueryNum, &rangeQueryResultGPU[0], resultSize, &stateTableRange[0], 0);
 	timer.stop();
 	cout << "Single GPU Time:" << timer.elapse() << "ms" << endl;
 	CUDA_CALL(cudaFree(allocatedGPUMem));
 	CUDA_CALL(cudaFree(g->stateTableGPU[0]));
 
+	FILE* fp = fopen("GPUResult.txt", "w+");
+	for (int i = 0; i <= rangeQueryNum - 1; i++)
+	{
+		for (int traID = 1; traID <= this->g->trajNum; traID++) {
+			if (rangeQueryResultGPU[i][traID])
+				fprintf(fp, "Query %d result: %d\n", i, traID);
+		}
+	}
+	fclose(fp);
+
 #ifdef USE_MULTIGPU
 	printf("multi-GPU range query #query=%d:\n", rangeQueryNum);
-	g->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, resultTable, resultSize);
+	vector<CPURangeQueryResult> rangeQueryResultGPUs;
+	rangeQueryResultGPUs.resize(rangeQueryNum);
+	g->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, &rangeQueryResultGPUs[0], resultSize);
 #else
 
 #endif

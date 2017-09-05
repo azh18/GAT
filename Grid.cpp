@@ -435,6 +435,14 @@ int Grid::findMatchNodeInQuadTree(QuadtreeNode* node, MBB& bound, vector<Quadtre
 
 int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx)
 {
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
+		ResultTable[i].resize(this->trajNum + 1);
+		for (int j = 0; j <= this->trajNum; j++)
+		{
+			ResultTable[i][j] = 0;
+		}
+	}
 	// 分配GPU内存
 	//MyTimer timer;
 	// 参数随便设置的，可以再调
@@ -475,16 +483,16 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//timer.start();
 	cudaRangeQueryTestHandler((RangeQueryStateTable*)this->stateTableGPU[device_idx], this->stateTableLength[device_idx], resultsReturned, this->trajNum + 1, rangeNum, stream);
 	//ofstream fp("queryResult(GTS).txt", ios_base::out);
-	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
-	//{
-	//	for (int traID = 0; traID <= this->trajNum; traID++)
-	//	{
-	//		if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
-	//		{
-	//			fp << "job " << jobID << "find" << traID << endl;
-	//		}
-	//	}
-	//}
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
+	{
+		for (int traID = 0; traID <= this->trajNum; traID++)
+		{
+			if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
+			{
+				ResultTable[jobID][traID] = TRUE;
+			}
+		}
+	}
 	//for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);

@@ -77,26 +77,8 @@ int main()
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 
 	SystemTest test(tradb, g, stig, fsg);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 20);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 40);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 60);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 80);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 100);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 120);
 	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 140);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 20);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 40);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 60);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 80);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 100);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 120);
 	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 140);
-	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 20);
-	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 40);
-	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 60);
-	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 80);
-	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 100);
-	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 120);
 	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 140);
 	test.similarityQueryTest(47, 10, 5);
 	test.similarityQueryTest(47, 20, 5);
