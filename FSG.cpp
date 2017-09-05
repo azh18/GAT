@@ -283,7 +283,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 		for (int i = 0; i <= DirectresultSize - 1; i++)
 		{
 			int startIdx = this->cellPtr[directResultsCellID[i]].pointRangeStart;
-			int pointNum = this->cellPtr[directResultsCellID[i]].pointRangeEnd - this->cellPtr[candidatesCellID[i]].pointRangeStart + 1;
+			int pointNum = this->cellPtr[directResultsCellID[i]].pointRangeEnd - this->cellPtr[directResultsCellID[i]].pointRangeStart + 1;
 			if (this->nodeAddrTable[device_idx].find(directResultsCellID[i]) == this->nodeAddrTable[device_idx].end()) {
 				CUDA_CALL(cudaMemcpyAsync(this->baseAddrRange[device_idx], &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
 				this->nodeAddrTable[device_idx][directResultsCellID[i]] = this->baseAddrRange[device_idx];
