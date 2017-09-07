@@ -122,6 +122,7 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 			cnt += this->g->cellBasedTrajectory[queryTrajNo].numOfPointInCell[subID];
 		}
 	}
+	printf("qTra Length:%d\n", qTra[0].length);
 	//for (int i = 0; i <= similarityScale-1; i++)
 	//{
 	//	qTra[i] = tradb[47]; // length is 1024

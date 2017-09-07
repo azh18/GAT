@@ -541,7 +541,7 @@ int Grid::rangeQueryBatchMultiGPU(MBB* bounds, int rangeNum, CPURangeQueryResult
 		CUDA_CALL(cudaMalloc((void**)&this->stateTableGPU[device_idx], (long long int)SMALL_MEM * 1024 * 1024));
 		allocatedGPUMem[device_idx] = this->baseAddrRange[device_idx];
 		threads_RQ.push_back(thread(std::mem_fn(&Grid::rangeQueryBatchGPU), this, &bounds[startIdx[device_idx
-		]], rangeNumGPU[device_idx], ResultTable, resultSetSize, &stateTableRange[device_idx][0], device_idx));
+		]], rangeNumGPU[device_idx], &ResultTable[startIdx[device_idx]], resultSetSize, &stateTableRange[device_idx][0], device_idx));
 	}
 	timer.start();
 	std::for_each(threads_RQ.begin(), threads_RQ.end(), std::mem_fn(&std::thread::join));

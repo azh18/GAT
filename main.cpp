@@ -1,6 +1,6 @@
 // Data_Structure_Test.cpp : 定义控制台应用程序的入口点。
 //
-
+#include <unistd.h>
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -45,11 +45,11 @@ int main()
 	//PreProcess pp("SH_0.txt", "dataout.txt");
 	//pp.writeTraDataToFile("SH_0_OUT.txt");
 	PreProcess pp;
-	pp.readTraFromFormatedFile("SH_0_OUT.txt");
+	pp.readTraFromFormatedFile("SH_6_OUT.txt");
 
 	//cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
-	
+	sleep(1);	
 	//for (int i = 1; i <= 10000;i++)
 	//{
 	//	printf("%d,%d\t", i, tradb[i].length);
@@ -57,12 +57,16 @@ int main()
 
 	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), CELL_LEN);
 	g->addDatasetToGrid(tradb, pp.maxTid);
+	//Grid *g;
+	//sleep(1);
 	STIG *stig = new STIG();
 	stig->initial(1024, 2, tradb, pp.maxTid);
+	//STIG *stig;
+	//sleep(1);
 	FSG *fsg = new FSG(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), CELL_LEN);
 	fsg->addDatasetToGrid(tradb, pp.maxTid);
-
-
+	//FSG *fsg;
+	//sleep(1);
 	cout << "build cell index success!" << endl;
 	//delete[] tradb;
 	int count = 0;
@@ -77,9 +81,11 @@ int main()
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 
 	SystemTest test(tradb, g, stig, fsg);
-	test.rangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 140);
-	test.STIGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 140);
-	test.FSGrangeQueryTest(MBB(121.439, 31.236, 121.468, 31.255), 140);
+	test.rangeQueryTest(MBB(121.398, 31.139, 121.456, 31.208), 80);
+	test.STIGrangeQueryTest(MBB(121.398, 31.139, 121.456, 31.208), 80);
+	test.FSGrangeQueryTest(MBB(121.398, 31.139, 121.456, 31.208), 80);
+	test.similarityQueryTest(47, 20, 5);
+	/*
 	test.similarityQueryTest(47, 10, 5);
 	test.similarityQueryTest(47, 20, 5);
 	test.similarityQueryTest(47, 30, 5);
@@ -87,7 +93,7 @@ int main()
 	test.similarityQueryTest(47, 50, 5);
 	test.similarityQueryTest(47, 60, 5);
 	test.similarityQueryTest(47, 70, 5);
-	
+	*/
 	printf("Finished.\n");
 	//CPURangeQueryResult* resultTable = NULL;
 	//int RangeQueryResultSize = 0;

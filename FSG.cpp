@@ -259,16 +259,16 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 		{
 			int startIdx = this->cellPtr[candidatesCellID[i]].pointRangeStart;
 			int pointNum = this->cellPtr[candidatesCellID[i]].pointRangeEnd - this->cellPtr[candidatesCellID[i]].pointRangeStart + 1;
-			if (this->nodeAddrTable[device_idx].find(candidatesCellID[i]) == this->nodeAddrTable[device_idx].end()) {
+			//if (this->nodeAddrTable[device_idx].find(candidatesCellID[i]) == this->nodeAddrTable[device_idx].end()) {
 				CUDA_CALL(cudaMemcpyAsync(this->baseAddrRange[device_idx], &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
-				this->nodeAddrTable[device_idx][candidatesCellID[i]] = this->baseAddrRange[device_idx];
+			//	this->nodeAddrTable[device_idx][candidatesCellID[i]] = this->baseAddrRange[device_idx];
 				this->stateTableRange[device_idx]->ptr = this->baseAddrRange[device_idx];
 				this->baseAddrRange[device_idx] = (void*)((char*)this->baseAddrRange[device_idx] + pointNum * sizeof(SPoint));
-			}
-			else
-			{
-				this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx][candidatesCellID[i]];
-			}
+			//}
+			//else
+			//{
+			//	this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx][candidatesCellID[i]];
+			//}
 			this->stateTableRange[device_idx]->xmin = bounds[j].xmin;
 			this->stateTableRange[device_idx]->xmax = bounds[j].xmax;
 			this->stateTableRange[device_idx]->ymin = bounds[j].ymin;
@@ -284,16 +284,16 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 		{
 			int startIdx = this->cellPtr[directResultsCellID[i]].pointRangeStart;
 			int pointNum = this->cellPtr[directResultsCellID[i]].pointRangeEnd - this->cellPtr[directResultsCellID[i]].pointRangeStart + 1;
-			if (this->nodeAddrTable[device_idx].find(directResultsCellID[i]) == this->nodeAddrTable[device_idx].end()) {
+			//if (this->nodeAddrTable[device_idx].find(directResultsCellID[i]) == this->nodeAddrTable[device_idx].end()) {
 				CUDA_CALL(cudaMemcpyAsync(this->baseAddrRange[device_idx], &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
-				this->nodeAddrTable[device_idx][directResultsCellID[i]] = this->baseAddrRange[device_idx];
+			//	this->nodeAddrTable[device_idx][directResultsCellID[i]] = this->baseAddrRange[device_idx];
 				this->stateTableRange[device_idx]->ptr = this->baseAddrRange[device_idx];
 				this->baseAddrRange[device_idx] = (void*)((char*)this->baseAddrRange[device_idx] + pointNum * sizeof(SPoint));
-			}
-			else
-			{
-				this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx][directResultsCellID[i]];
-			}
+			//}
+			//else
+			//{
+			//	this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx][directResultsCellID[i]];
+			//}
 			this->stateTableRange[device_idx]->xmin = bounds[j].xmin;
 			this->stateTableRange[device_idx]->xmax = bounds[j].xmax;
 			this->stateTableRange[device_idx]->ymin = bounds[j].ymin;
