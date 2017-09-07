@@ -5,7 +5,7 @@
 #define USE_MULTIGPU
 #endif
 
-#define CHECK_CORRECT
+// #define CHECK_CORRECT
 
 //GPU mem alloc
 #ifdef WIN32
@@ -29,7 +29,7 @@
 #define MAXTHREAD 256
 
 //每个node内包含的点的个数上限
-#define MAXPOINTINNODE 20000
+#define MAXPOINTINNODE 2000
 
 //在FVTable中，由于GPU显存限制，每次可以检查的FV的上限
 #define N_BATCH_QUERY 2048

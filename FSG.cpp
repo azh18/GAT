@@ -144,6 +144,7 @@ int FSG::addDatasetToGrid(Trajectory * db, int traNum)
 
 int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * ResultTable, int * resultSetSize, RangeQueryStateTable * stateTableAllocate, int device_idx)
 {
+#ifdef CHECK_CORRECT
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		ResultTable[i].resize(this->trajNum + 1);
@@ -152,6 +153,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 			ResultTable[i][j] = 0;
 		}
 	}
+#endif
 	// 分配GPU内存
 	//MyTimer timer;
 	// 参数随便设置的，可以再调
@@ -350,6 +352,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 	//		}
 	//	}
 	//}
+#ifdef CHECK_CORRECT
 	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
 	{
 		for (int traID = 0; traID <= this->trajNum; traID++)
@@ -360,6 +363,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 			}
 		}
 	}
+#endif
 	//for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);

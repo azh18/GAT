@@ -335,6 +335,7 @@ int Grid::writeCellsToFile(int* cellNo, int cellNum, string file)
 
 int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize)
 {
+#ifdef CHECK_CORRECT
 	for (int i = 0; i <= rangeNum - 1;i++)
 	{
 		ResultTable[i].resize(this->trajNum + 1);
@@ -343,6 +344,7 @@ int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* Result
 			ResultTable[i][j] = 0;
 		}
 	}
+#endif
 	int totalLevel = int(log2(this->cellnum) / log2(4));
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
@@ -436,6 +438,7 @@ int Grid::findMatchNodeInQuadTree(QuadtreeNode* node, MBB& bound, vector<Quadtre
 
 int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx)
 {
+#ifdef CHECK_CORRECT
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		ResultTable[i].resize(this->trajNum + 1);
@@ -444,6 +447,7 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 			ResultTable[i][j] = 0;
 		}
 	}
+#endif
 	// 分配GPU内存
 	//MyTimer timer;
 	// 参数随便设置的，可以再调
@@ -467,7 +471,7 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	{
 		if (stateTableAllocate[i].candidatePointNum > maxPointNum)
 			maxPointNum = stateTableAllocate[i].candidatePointNum;
-		fprintf(testFile, "%d ", stateTableAllocate[i].candidatePointNum);
+		//fprintf(testFile, "%d ", stateTableAllocate[i].candidatePointNum);
 	}
 	//交给GPU进行并行查询
 	//先传递stateTable
@@ -486,6 +490,8 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//timer.start();
 	cudaRangeQueryTestHandler((RangeQueryStateTable*)this->stateTableGPU[device_idx], this->stateTableLength[device_idx], resultsReturned, this->trajNum + 1, rangeNum, stream);
 	//ofstream fp("queryResult(GTS).txt", ios_base::out);
+#ifdef CHECK_CORRECT
+
 	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
 	{
 		for (int traID = 0; traID <= this->trajNum; traID++)
@@ -496,6 +502,7 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 			}
 		}
 	}
+#endif
 	//for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);
@@ -598,7 +605,7 @@ int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode* node, MBB& bound, vector<Quad
 			this->stateTableRange[device_idx] = this->stateTableRange[device_idx] + 1;
 			this->stateTableLength[device_idx] = this->stateTableLength[device_idx] + 1;
 			this->testCnt++;
-			printf("%d ", this->testCnt);
+			//printf("%d ", this->testCnt);
 			dataPtr += pointsInState;
 		}
 	}
