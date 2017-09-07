@@ -103,6 +103,7 @@ Grid::Grid(const MBB& mbb, float val_cell_size)
 	cellNum_axis = maxValue >> (int(log2(maxValue))) << (int(log2(maxValue)) + 1);
 	cellnum = cellNum_axis * cellNum_axis;
 	cellPtr = new Cell[cellnum];
+	this->testCnt = 0;
 	//由于满足正方形需要，向xmax、ymin方向扩展range
 
 	//注意cell编号是从(xmin,ymax)开始的，而不是(xmin,ymin)
@@ -460,11 +461,13 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	}
 	//printf("StateTableLength:%d",this->stateTableLength);
 	//stateTable中点的数目的最大值
+	FILE* testFile = fopen("freq.txt", "w+");
 	int maxPointNum = 0;
 	for (int i = 0; i <= this->stateTableLength[device_idx] - 1; i++)
 	{
 		if (stateTableAllocate[i].candidatePointNum > maxPointNum)
 			maxPointNum = stateTableAllocate[i].candidatePointNum;
+		fprintf(testFile, "%d ", stateTableAllocate[i].candidatePointNum);
 	}
 	//交给GPU进行并行查询
 	//先传递stateTable
@@ -563,29 +566,41 @@ int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode* node, MBB& bound, vector<Quad
 		int startCellID = node->NodeID * int(pow(4, (totalLevel - node->level)));
 		int startIdx = this->cellPtr[startCellID].pointRangeStart;
 		int pointNum = node->numPoints;
+		SPoint* dataPtr = NULL;
 		//如果gpu内存中没有该node的信息
 		if (this->nodeAddrTable[device_idx].find(startCellID) == this->nodeAddrTable[device_idx].end())
 		{
 			CUDA_CALL(cudaMemcpyAsync(this->baseAddrRange[device_idx], &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
-			this->stateTableRange[device_idx]->ptr = this->baseAddrRange[device_idx];
+			dataPtr = (SPoint*)this->baseAddrRange[device_idx];
 			this->nodeAddrTable[device_idx].insert(pair<int, void*>(startCellID, this->baseAddrRange[device_idx]));
 			this->baseAddrRange[device_idx] = (void*)((char*)this->baseAddrRange[device_idx] + pointNum * sizeof(SPoint));
 		}
 		//如果有，不再复制，直接用
 		else
 		{
-			this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx].find(startCellID)->second;
+			//this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx].find(startCellID)->second;
+			dataPtr = (SPoint*)this->nodeAddrTable[device_idx].find(startCellID)->second;
 		}
-
-		this->stateTableRange[device_idx]->xmin = bound.xmin;
-		this->stateTableRange[device_idx]->xmax = bound.xmax;
-		this->stateTableRange[device_idx]->ymin = bound.ymin;
-		this->stateTableRange[device_idx]->ymax = bound.ymax;
-		this->stateTableRange[device_idx]->candidatePointNum = pointNum;
-		this->stateTableRange[device_idx]->startIdxInAllPoints = startIdx;
-		this->stateTableRange[device_idx]->queryID = queryID;
-		this->stateTableRange[device_idx] = this->stateTableRange[device_idx] + 1;
-		this->stateTableLength[device_idx] = this->stateTableLength[device_idx] + 1;
+		int pointsInState = 0;
+		for (int idx = 0; idx < pointNum; idx+=MAXPOINTINNODE) {
+			this->stateTableRange[device_idx]->ptr = dataPtr;
+			this->stateTableRange[device_idx]->xmin = bound.xmin;
+			this->stateTableRange[device_idx]->xmax = bound.xmax;
+			this->stateTableRange[device_idx]->ymin = bound.ymin;
+			this->stateTableRange[device_idx]->ymax = bound.ymax;
+			if (idx + MAXPOINTINNODE >= pointNum)
+				pointsInState = pointNum - idx;
+			else
+				pointsInState = MAXPOINTINNODE;
+			this->stateTableRange[device_idx]->candidatePointNum = pointsInState;
+			this->stateTableRange[device_idx]->startIdxInAllPoints = startIdx + idx;
+			this->stateTableRange[device_idx]->queryID = queryID;
+			this->stateTableRange[device_idx] = this->stateTableRange[device_idx] + 1;
+			this->stateTableLength[device_idx] = this->stateTableLength[device_idx] + 1;
+			this->testCnt++;
+			printf("%d ", this->testCnt);
+			dataPtr += pointsInState;
+		}
 	}
 	else
 	{

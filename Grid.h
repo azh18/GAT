@@ -87,6 +87,7 @@ public:
 	std::map<int, void*> nodeAddrTable[2];
 	int stateTableLength[2];
 	int nodeAddrTableLength[2];
+	int testCnt;
 
 	//Similarity Query ”√
 	FVTable freqVectors;

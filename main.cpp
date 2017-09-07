@@ -64,7 +64,7 @@ int main()
 	//Grid *g;
 	//sleep(1);
 	STIG *stig = new STIG();
-	stig->initial(1024, 2, tradb, pp.maxTid);
+	stig->initial(10240, 2, tradb, pp.maxTid);
 	//STIG *stig;
 	//sleep(1);
 	FSG *fsg = new FSG(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), CELL_LEN);
@@ -89,6 +89,7 @@ int main()
 	test.STIGrangeQueryTest(MBB(121.398, 31.139, 121.456, 31.208), 80);
 	test.FSGrangeQueryTest(MBB(121.398, 31.139, 121.456, 31.208), 80);
 	test.similarityQueryTest(47, 20, 5);
+	
 	/*
 	test.similarityQueryTest(47, 10, 5);
 	test.similarityQueryTest(47, 20, 5);
