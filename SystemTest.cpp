@@ -75,7 +75,7 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	cout << "Single GPU Time:" << timer.elapse() << "ms" << endl;
 	CUDA_CALL(cudaFree(allocatedGPUMem));
 	CUDA_CALL(cudaFree(g->stateTableGPU[0]));
-
+#ifdef CHECK_CORRECT
 	FILE* fp = fopen("GPUResult.txt", "w+");
 	for (int i = 0; i <= rangeQueryNum - 1; i++)
 	{
@@ -85,6 +85,7 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 		}
 	}
 	fclose(fp);
+#endif
 
 #ifdef USE_MULTIGPU
 	printf("multi-GPU range query #query=%d:\n", rangeQueryNum);
@@ -241,6 +242,7 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 #else
 
 #endif
+#ifdef CHECK_CORRECT
 	FILE* fp = fopen("STIGResult.txt", "w+");
 	for (int i = 0; i <= rangeQueryNum - 1; i++)
 	{
@@ -250,6 +252,7 @@ int SystemTest::STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 		}
 	}
 	fclose(fp);
+#endif
 	return 0;
 }
 
@@ -300,6 +303,7 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 #else
 
 #endif
+#ifdef CHECK_CORRECT
 	FILE* fp = fopen("FSGResult.txt", "w+");
 	for (int i = 0; i <= rangeQueryNum - 1; i++)
 	{
@@ -309,5 +313,6 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 		}
 	}
 	fclose(fp);
+#endif
 	return 0;
 }

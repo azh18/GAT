@@ -335,16 +335,20 @@ int Grid::writeCellsToFile(int* cellNo, int cellNum, string file)
 
 int Grid::rangeQueryBatch(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize)
 {
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
+		ResultTable[i].resize(this->trajNum + 1);
+	}
 #ifdef CHECK_CORRECT
 	for (int i = 0; i <= rangeNum - 1;i++)
 	{
-		ResultTable[i].resize(this->trajNum + 1);
 		for (int j = 0; j <= this->trajNum + 1;j++)
 		{
 			ResultTable[i][j] = 0;
 		}
 	}
 #endif
+
 	int totalLevel = int(log2(this->cellnum) / log2(4));
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
@@ -438,10 +442,13 @@ int Grid::findMatchNodeInQuadTree(QuadtreeNode* node, MBB& bound, vector<Quadtre
 
 int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx)
 {
-#ifdef CHECK_CORRECT
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		ResultTable[i].resize(this->trajNum + 1);
+	}
+#ifdef CHECK_CORRECT
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
 		for (int j = 0; j <= this->trajNum; j++)
 		{
 			ResultTable[i][j] = 0;
