@@ -1022,7 +1022,7 @@ int Grid::SimilarityExecuter(SPoint* queryTra, SPoint** candidateTra, int queryL
 				SPoint p1 = tra1[row - 1];
 				SPoint p2 = tra2[col - 1]; //这样做内存是聚集访问的吗？
 				bool subcost;
-				if (((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y)) < EPSILON)
+				if ((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON))
 				{
 					subcost = 0;
 				}
@@ -2159,7 +2159,7 @@ int Grid::SimilarityQueryBatchOnMultiGPU(Trajectory* qTra, int queryTrajNum, int
 //				SPoint p1 = tra1[row - 1];
 //				SPoint p2 = tra2[col - 1]; //这样做内存是聚集访问的吗？
 //				bool subcost;
-//				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+//				if((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON)) {
 //					subcost = 0;
 //				}
 //				else

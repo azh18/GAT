@@ -24,7 +24,7 @@ iter: µÚ¼¸¸ödpµ¥Î»£»outputIdx£ºÊä³ö½á¹ûÔÚÈ«¾ÖÄÚ´æÎ»ÖÃ£»tra1¡¢tra2£ºÁ½Ìõ¹ì¼££¬ÌáÇ
 //	SPoint p1 = tra1[threadIdx.x];
 //	SPoint p2 = tra2[iter - threadIdx.x - 1]; //ÕâÑù×öÄÚ´æÊÇ¾Û¼¯·ÃÎÊµÄÂğ£¿
 //	bool subcost;
-//	if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+//	if((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON)) {
 //		subcost = 0;
 //	}
 //	else
@@ -91,12 +91,12 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra, int candi
 				SPoint p1 = tra1[threadID];
 				SPoint p2 = tra2[i - threadID]; //ÕâÑù×öÄÚ´æÊÇ¾Û¼¯·ÃÎÊµÄÂğ£¿
 				bool subcost;
-				//if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+				//if((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON)) {
 				//	subcost = 0;
 				//}
 				//else
 				//	subcost = 1;
-				subcost = !(((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON);
+				subcost = !((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON));
 				int state_ismatch = state[0][threadID] + subcost;
 				int state_up = state[1][threadID] + 1;
 				int state_left = state[1][threadID + 1] + 1;
@@ -116,7 +116,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra, int candi
 				SPoint p1 = tra1[threadID + len1 - (iterNum - i)];
 				SPoint p2 = tra2[len2 - 1 - threadID]; //ÕâÑù×öÄÚ´æÊÇ¾Û¼¯·ÃÎÊµÄÂğ£¿
 				bool subcost;
-				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+				if ((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON)) {
 					subcost = 0;
 				}
 				else
@@ -138,7 +138,7 @@ __global__ void EDRDistance_1(SPoint *queryTra, SPoint **candidateTra, int candi
 				SPoint p1 = tra1[threadID];
 				SPoint p2 = tra2[i - threadID]; //ÕâÑù×öÄÚ´æÊÇ¾Û¼¯·ÃÎÊµÄÂğ£¿
 				bool subcost;
-				if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+				if ((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON)) {
 					subcost = 0;
 				}
 				else
@@ -331,12 +331,12 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 				if (nodeID <= i) {
 					p1 = tra1[nodeID];
 					p2 = tra2[i - nodeID]; //ÕâÑù×öÄÚ´æÊÇ¾Û¼¯·ÃÎÊµÄÂğ£¿
-					if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+					if ((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON)) {
 						subcost = 0;
 					}
 					else
 						subcost = 1;
-					//subcost = !(((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON);
+					//subcost = !((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON));
 					bool c1 = ((state[0][nodeID] + subcost < (state[1][nodeID] + 1)) && (state[0][nodeID] + subcost < (state[1][nodeID + 1] + 1)));
 					bool c2 = (((state[1][nodeID + 1] + 1) < (state[1][nodeID] + 1)) && (((state[1][nodeID + 1] + 1) < state[0][nodeID] + subcost)));
 					//È¥³ıifµÄ±í´ï·½Ê½£¬ÊÇ·ñ¿ÉÒÔÌáÉıĞÔÄÜ£¿
@@ -358,7 +358,7 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 				if (nodeID <= iterNum - i - 1) {
 					p1 = tra1[nodeID + len1 - (iterNum - i)];
 					p2 = tra2[len2 - 1 - nodeID]; //ÕâÑù×öÄÚ´æÊÇ¾Û¼¯·ÃÎÊµÄÂğ£¿
-					if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+					if ((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON)) {
 						subcost = 0;
 					}
 					else
@@ -383,7 +383,7 @@ __global__ void EDRDistance_Batch(int queryTaskNum, TaskInfoTableForSimilarity* 
 				if (nodeID < len1) {
 					p1 = tra1[nodeID];
 					p2 = tra2[i - nodeID]; //ÕâÑù×öÄÚ´æÊÇ¾Û¼¯·ÃÎÊµÄÂğ£¿
-					if (((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y)) < EPSILON) {
+					if ((fabs(p1.x - p2.x) < EPSILON) && (fabs(p1.y - p2.y)<EPSILON)) {
 						subcost = 0;
 					}
 					else

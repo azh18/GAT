@@ -1,6 +1,11 @@
 // Data_Structure_Test.cpp : 定义控制台应用程序的入口点。
 //
+#ifndef WIN32
 #include <unistd.h>
+#else
+#include <Windows.h>
+#endif
+
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -45,11 +50,10 @@ int main()
 	//PreProcess pp("SH_0.txt", "dataout.txt");
 	//pp.writeTraDataToFile("SH_0_OUT.txt");
 	PreProcess pp;
-	pp.readTraFromFormatedFile("SH_6_OUT.txt");
+	pp.readTraFromFormatedFile("SH_0_OUT.txt");
 
 	//cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
-	sleep(1);	
 	//for (int i = 1; i <= 10000;i++)
 	//{
 	//	printf("%d,%d\t", i, tradb[i].length);

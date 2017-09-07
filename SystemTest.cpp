@@ -135,7 +135,7 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 
 	//Similarity on CPU
 	int* simiResult = new int[similarityKValue * similarityScale];
-	g->SimilarityQueryBatch(qTra, similarityScale, simiResult, similarityKValue);
+	//g->SimilarityQueryBatch(qTra, similarityScale, simiResult, similarityKValue);
 	printf("multi-core CPU similarity @ k=%d and #query=%d:\n",similarityKValue,similarityScale);
 	g->SimilarityQueryBatchCPUParallel(qTra, similarityScale, simiResult, similarityKValue);
 

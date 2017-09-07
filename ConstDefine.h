@@ -16,8 +16,8 @@
 #define SMALL_MEM 1000
 #endif
 
-#define CELL_LEN 0.025 //cell边长大小
-#define VITURAL_CELL_PARAM 4 //虚格子的放大系数，控制虚格子的大小
+#define CELL_LEN 0.02 //cell边长大小
+#define VITURAL_CELL_PARAM 2 //虚格子的放大系数，控制虚格子的大小
 
 #define MAX_TRAJ_SIZE 500000
 //受到GPU可用的shared memory限制
@@ -25,7 +25,7 @@
 //MAXGAP是最大轨迹内时间间隔，如果超过这个间隔应该被视为两条轨迹
 #define MAXGAP 3600
 
-#define EPSILON 0.001
+#define EPSILON 0.01
 #define MAXTHREAD 256
 
 //每个node内包含的点的个数上限
