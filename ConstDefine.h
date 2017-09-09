@@ -12,12 +12,12 @@
 #define BIG_MEM 1024
 #define SMALL_MEM 256
 #else
-#define BIG_MEM 9000
-#define SMALL_MEM 1000
+#define BIG_MEM 8000
+#define SMALL_MEM 2000
 #endif
 
 #define CELL_LEN 0.02 //cell边长大小
-#define VITURAL_CELL_PARAM 2 //虚格子的放大系数，控制虚格子的大小
+//#define VITURAL_CELL_PARAM 8 //虚格子的放大系数，控制虚格子的大小
 
 #define MAX_TRAJ_SIZE 500000
 //受到GPU可用的shared memory限制
@@ -25,11 +25,11 @@
 //MAXGAP是最大轨迹内时间间隔，如果超过这个间隔应该被视为两条轨迹
 #define MAXGAP 3600
 
-#define EPSILON 0.01
+#define EPSILON 0.0025
 #define MAXTHREAD 256
 
 //每个node内包含的点的个数上限
-#define MAXPOINTINNODE 2000
+#define MAXPOINTINNODE 20000
 
 //在FVTable中，由于GPU显存限制，每次可以检查的FV的上限
 #define N_BATCH_QUERY 2048

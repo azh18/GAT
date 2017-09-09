@@ -36,7 +36,7 @@ class Grid
 public:
 	Grid();
 	~Grid();
-	Grid(const MBB& mbb, float val_cell_size);
+	Grid(const MBB& mbb, float val_cell_size,int VITURAL_CELL_PARAM);
 	int addTrajectoryIntoCell(Trajectory &t);
 	int WhichCellPointIn(SamplePoint p);
 	int addDatasetToGrid(Trajectory* db,int traNum);
@@ -73,7 +73,7 @@ public:
 	int totalPointNum; //grid内点个数
 	int trajNum;
 	QuadtreeNode *root;
-
+	int VITURAL_CELL_PARAM;
 	std::vector<cellBasedTraj> cellBasedTrajectory; //cellbasedtrajectory，二元组：（cell编号数组地址，数组长度）
 
 	SPoint* allPoints;//存储所有点的数组

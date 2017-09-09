@@ -50,8 +50,8 @@ int main()
 	//PreProcess pp("SH_0.txt", "dataout.txt");
 	//pp.writeTraDataToFile("SH_0_OUT.txt");
 	PreProcess pp;
-	pp.readTraFromFormatedFile("SH_0_OUT.txt");
-
+	pp.readTraFromFormatedFile("SH_1_OUT.txt");
+	//sleep(1);
 	//cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
 	//for (int i = 1; i <= 10000;i++)
@@ -59,7 +59,7 @@ int main()
 	//	printf("%d,%d\t", i, tradb[i].length);
 	//}
 
-	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), CELL_LEN);
+	Grid* g = new Grid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), CELL_LEN, 8);
 	g->addDatasetToGrid(tradb, pp.maxTid);
 	//Grid *g;
 	//sleep(1);
@@ -69,8 +69,13 @@ int main()
 	//sleep(1);
 	FSG *fsg = new FSG(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), CELL_LEN);
 	fsg->addDatasetToGrid(tradb, pp.maxTid);
+	//sleep(1);
+	//int* EDRTable = new int[pp.maxTid*fsg->cellnum];
+	//for(int i=0;i<=pp.maxTid*fsg->cellnum-1;i++)
+	//printf("%d",pp.maxTid*fsg->cellnum*sizeof(int)/1024/1024);
 	//FSG *fsg;
 	//sleep(1);
+	//return 0;
 	cout << "build cell index success!" << endl;
 	//delete[] tradb;
 	int count = 0;
@@ -83,33 +88,76 @@ int main()
 	//int temp[7] = { 553,554,555,556,557,558,559 };
 	//int sizetemp = 7;
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
-
+	
 	SystemTest test(tradb, g, stig, fsg);
-	test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 20);
-	test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 40);
-	test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 60);
-	test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 80);
-	test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 100);
-	test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 120);
-	test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 140);
-	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 20);
-	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 40);
-	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 60);
-	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 80);
-	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 100);
-	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 120);
-	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 140);
-	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 20);
-	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 40);
-	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 60);
-	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 80);
-	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 100);
-	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 120);
-	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 140);
+	// test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
+	// test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
+	// test.rangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
+	// test.rangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
+	// test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
+	// test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
+	// test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
+	// test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
+	// test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
+	// test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
+	// test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
+	// test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
+
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 20);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 40);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 60);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 100);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 120);
+	test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 140);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 20);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 40);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 60);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 100);
+	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 120);
+	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 140);
+	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 20);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 40);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 60);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 100);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 120);
+	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 140);
 	//test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 80);
 	//test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228), 80);
 	//test.similarityQueryTest(47, 20, 5);
-	
+	// test.similarityQueryTest(19358, 10, 5);
+	// test.similarityQueryTest(1299, 10, 5);
+	// test.similarityQueryTest(33708, 10, 5);
+	// test.similarityQueryTest(67630, 10, 5);
+	// test.similarityQueryTest(99263, 10, 5);
+	// test.similarityQueryTest(1309, 10, 5);
+	// test.similarityQueryTest(10702, 10, 5);
+	// test.similarityQueryTest(74853, 10, 5);
+	// test.similarityQueryTest(104728, 10, 5);
+	// test.similarityQueryTest(149443, 10, 5);
+	// test.similarityQueryTest(66375, 10, 5);	
+	// test.similarityQueryTest(149273, 10, 5);
+	// test.similarityQueryTest(200276, 10, 5);
+	// test.similarityQueryTest(229797, 10, 5);
+	// test.similarityQueryTest(249730, 10, 5);
+	test.similarityQueryTest(21032, 10, 5);
+	test.similarityQueryTest(21032, 20, 5);
+	test.similarityQueryTest(21032, 30, 5);
+	test.similarityQueryTest(21032, 40, 5);
+	test.similarityQueryTest(21032, 50, 5);
+	test.similarityQueryTest(21032, 60, 5);
+	// printf("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk\n");
+	test.similarityQueryTest(21032, 20, 5);
+	test.similarityQueryTest(21032, 20, 10);
+	test.similarityQueryTest(21032, 20, 15);
+	test.similarityQueryTest(21032, 20, 20);
+	test.similarityQueryTest(21032, 20, 25);
+	// test.similarityQueryTest(51991, 10, 5);
+	// test.similarityQueryTest(69468, 10, 5);
+	// test.similarityQueryTest(92757, 10, 5);
+	// test.similarityQueryTest(134802, 10, 5);
 	/*
 	test.similarityQueryTest(47, 10, 5);
 	test.similarityQueryTest(47, 20, 5);
@@ -118,6 +166,13 @@ int main()
 	test.similarityQueryTest(47, 50, 5);
 	test.similarityQueryTest(47, 60, 5);
 	test.similarityQueryTest(47, 70, 5);
+	test.similarityQueryTest(47, 20, 5);
+	test.similarityQueryTest(47, 20, 10);
+	test.similarityQueryTest(47, 20, 15);
+	test.similarityQueryTest(47, 20, 20);
+	test.similarityQueryTest(47, 20, 25);
+	test.similarityQueryTest(47, 20, 30);
+	test.similarityQueryTest(47, 20, 35);
 	*/
 	printf("Finished.\n");
 	//CPURangeQueryResult* resultTable = NULL;

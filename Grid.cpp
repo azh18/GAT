@@ -91,8 +91,9 @@ int Grid::buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode* pa
 }
 
 
-Grid::Grid(const MBB& mbb, float val_cell_size)
+Grid::Grid(const MBB& mbb, float val_cell_size, int VITURAL_CELL_PARAM)
 {
+	this->VITURAL_CELL_PARAM = VITURAL_CELL_PARAM;
 	range = mbb;
 	cell_size = val_cell_size;
 	//貌似只需要用一个维度就行了，因为规定好了必须是2*2,4*4，……
@@ -547,8 +548,8 @@ int Grid::rangeQueryBatchMultiGPU(MBB* bounds, int rangeNum, CPURangeQueryResult
 	startIdx[1] = rangeNumGPU[0];
 	void* allocatedGPUMem[2] = { NULL };
 	vector<RangeQueryStateTable> stateTableRange[2];
-	stateTableRange[0].resize(rangeNum * 1000);
-	stateTableRange[1].resize(rangeNum * 1000);
+	stateTableRange[0].resize(rangeNum * 10000);
+	stateTableRange[1].resize(rangeNum * 10000);
 
 	for (int device_idx=0; device_idx <= device_num - 1; device_idx++)
 	{

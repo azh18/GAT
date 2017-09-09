@@ -68,7 +68,7 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	void *allocatedGPUMem = g->baseAddrRange[0];
 	CUDA_CALL(cudaMalloc((void**)&g->stateTableGPU[0], (long long int)SMALL_MEM * 1024 * 1024));
 	vector<RangeQueryStateTable> stateTableRange;
-	stateTableRange.resize(rangeQueryNum * 1000);
+	stateTableRange.resize(rangeQueryNum * 10000);
 	timer.start();
 	g->rangeQueryBatchGPU(mbbArray, rangeQueryNum, &rangeQueryResultGPU[0], resultSize, &stateTableRange[0], 0);
 	timer.stop();
@@ -123,7 +123,7 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 			cnt += this->g->cellBasedTrajectory[queryTrajNo].numOfPointInCell[subID];
 		}
 	}
-	printf("qTra Length:%d\n", qTra[0].length);
+	printf("qTra Length:%d qTra ID:%d\n", qTra[0].length, qTra[0].tid);
 	//for (int i = 0; i <= similarityScale-1; i++)
 	//{
 	//	qTra[i] = tradb[47]; // length is 1024
@@ -136,10 +136,12 @@ int SystemTest::similarityQueryTest(int queryTrajNo, int similarityScale, int si
 
 	//Similarity on CPU
 	int* simiResult = new int[similarityKValue * similarityScale];
-	//g->SimilarityQueryBatch(qTra, similarityScale, simiResult, similarityKValue);
+		
+	printf("single-core CPU similarity @ k=%d and #query=%d:\n",similarityKValue,similarityScale);
+	g->SimilarityQueryBatch(qTra, similarityScale, simiResult, similarityKValue);
 	printf("multi-core CPU similarity @ k=%d and #query=%d:\n",similarityKValue,similarityScale);
 	g->SimilarityQueryBatchCPUParallel(qTra, similarityScale, simiResult, similarityKValue);
-
+	
 	/*
 	for (int i = 0; i <= similarityScale-1; i++) {
 		cout << "Trajectory:" << i << endl;
@@ -283,7 +285,7 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	void *allocatedGPUMem = fsg->baseAddrRange[0];
 	CUDA_CALL(cudaMalloc((void**)&fsg->stateTableGPU[0], (long long int)SMALL_MEM * 1024 * 1024));
 	vector<RangeQueryStateTable> stateTableRange;
-	stateTableRange.resize(rangeQueryNum * 1000);
+	stateTableRange.resize(rangeQueryNum * 10000);
 	//FSG如果查询数量多于80则显存会不足，因此如果多于80就拆分成几个查询
 	const int ONCE_QUERY_NUM = 50;
 	timer.start();
