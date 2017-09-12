@@ -77,6 +77,7 @@ int FVTable::findNeighbor(int cellID, int * neighborID)
 int FVTable::formPriorityQueue(priority_queue<FDwithID, vector<FDwithID>, cmp> *queue, map<int, int>* freqVectorQ)
 {
 	MyTimer time1;
+	//printf("%d\n", this->trajNum);
 	for (int i = 1; i <= this->trajNum; i++) {
 		//对于该轨迹，计算与查询的FV的FD
 		//首先，计算两个vector的对应元素减法

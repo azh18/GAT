@@ -548,8 +548,8 @@ int Grid::rangeQueryBatchMultiGPU(MBB* bounds, int rangeNum, CPURangeQueryResult
 	startIdx[1] = rangeNumGPU[0];
 	void* allocatedGPUMem[2] = { NULL };
 	vector<RangeQueryStateTable> stateTableRange[2];
-	stateTableRange[0].resize(rangeNum * 10000);
-	stateTableRange[1].resize(rangeNum * 10000);
+	stateTableRange[0].resize(rangeNum * 50000);
+	stateTableRange[1].resize(rangeNum * 50000);
 
 	for (int device_idx=0; device_idx <= device_num - 1; device_idx++)
 	{
@@ -963,13 +963,22 @@ int Grid::SimilarityQueryBatchCPUParallel(Trajectory* qTra, int queryTrajNum, in
 	timer.start();
 	// check if the FD is lowerbound for all traj
 
-	const int THREAD_CPU = 4;
+	const int THREAD_CPU = 20;
 	vector<thread> threads;
-	for (int i = 0; i <= queryTrajNum - 1; i++)
+	int qIDnow = 0;
+	for (int i = qIDnow; qIDnow<=queryTrajNum-1; i++)
 	{
-		threads.push_back(thread(std::mem_fn(&Grid::SimilarityMultiThreadHandler), this, queryQueue, qTra, 1, EDRCalculated, kValue, i));
+		for(int j=0;j<=THREAD_CPU-1;j++)
+		{
+			if(qIDnow>queryTrajNum-1)
+				break;
+			threads.push_back(thread(std::mem_fn(&Grid::SimilarityMultiThreadHandler), this, queryQueue, qTra, 1, EDRCalculated, kValue, qIDnow));
+			qIDnow++;
+		}
+		std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+		threads.clear();
 	}
-	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+
 
 
 

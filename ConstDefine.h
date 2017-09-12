@@ -25,11 +25,11 @@
 //MAXGAP是最大轨迹内时间间隔，如果超过这个间隔应该被视为两条轨迹
 #define MAXGAP 3600
 
-#define EPSILON 0.0025
+#define EPSILON 0.005
 #define MAXTHREAD 256
 
 //每个node内包含的点的个数上限
-#define MAXPOINTINNODE 20000
+#define MAXPOINTINNODE 200000
 
 //在FVTable中，由于GPU显存限制，每次可以检查的FV的上限
 #define N_BATCH_QUERY 2048
