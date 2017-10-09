@@ -35,3 +35,5 @@ Just directly execute the compiled and linked executive file.
 17/8/7: add multi-thread CPU version of range query
 
 17/9/4: get wanted results, use const range query configuration to make sure the equality
+
+17/10/9: finish the paper!
