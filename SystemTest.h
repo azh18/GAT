@@ -5,6 +5,7 @@
 #include "MBB.h"
 #include "STIG.h"
 #include "FSG.h"
+#include "MortonGrid.h"
 
 extern void* baseAddrGPU;
 
@@ -18,15 +19,17 @@ public:
 	Grid* g;
 	STIG* stig;
 	FSG* fsg;
+	MortonGrid *mgrid;
 	MBB rangeQueryMBB;
 	int rangeQueryNum;
 	int similarityScale;
 	int similarityKValue;
-	SystemTest(Trajectory* tradb, Grid* g, STIG *stig, FSG* fsg);
+	SystemTest(Trajectory* tradb, Grid* g, STIG *stig, FSG* fsg, MortonGrid *mgrid);
 	int rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
 	int similarityQueryTest(Trajectory t, int similarityScale, int similarityKValue);
 	int STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
 	int FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
+	int MortonGridRangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
 
 };
 

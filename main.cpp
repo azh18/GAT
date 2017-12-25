@@ -1,9 +1,11 @@
 // Data_Structure_Test.cpp : ¶¨Òå¿ØÖÆÌ¨Ó¦ÓÃ³ÌÐòµÄÈë¿Úµã¡£
 //
+
 #ifndef WIN32
 #include <unistd.h>
 #else
 #include <Windows.h>
+#define sleep(x) Sleep(x*1000)
 #endif
 
 #include <iostream>
@@ -17,6 +19,7 @@
 #include "cudaKernel.h"
 #include "SystemTest.h"
 #include "STIG.h"
+#include "MortonGrid.h"
 
 
 using namespace std;
@@ -115,7 +118,7 @@ int main()
 	//PreProcess pp("SH_0.txt", "dataout.txt");
 	//pp.writeTraDataToFile("SH_0_OUT.txt");
 	PreProcess pp;
-	pp.readTraFromFormatedFile("SH_full_OUT.txt");
+	pp.readTraFromFormatedFile("SH_0_OUT.txt");
 	sleep(1);
 	//cout << WriteTrajectoryToFile("dataOut.txt", pp.maxTid) << endl;
 	cout << "read trajectory success!" << endl << "Start building cell index" << endl;
@@ -134,6 +137,10 @@ int main()
 	//sleep(1);
 	FSG *fsg = new FSG(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), CELL_LEN);
 	fsg->addDatasetToGrid(tradb, pp.maxTid);
+	
+	MortonGrid *mgrid = new MortonGrid(MBB(pp.xmin, pp.ymin, pp.xmax, pp.ymax), CELL_LEN, 2);
+	mgrid->addDatasetToGrid(tradb, pp.maxTid);
+	
 	//sleep(1);
 	//int* EDRTable = new int[pp.maxTid*fsg->cellnum];
 	//for(int i=0;i<=pp.maxTid*fsg->cellnum-1;i++)
@@ -154,7 +161,7 @@ int main()
 	//int sizetemp = 7;
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 	
-	SystemTest test(tradb, g, stig, fsg);
+	SystemTest test(tradb, g, stig, fsg, mgrid);
 	// test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
 	// test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
 	// test.rangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
@@ -247,6 +254,8 @@ int main()
 	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
 
 	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
+
+	test.MortonGridRangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
 
 	// test.similarityQueryTest(reduceTrajectory(&tradb[188], 1), 10, 5);
 	// test.similarityQueryTest(reduceTrajectory(&tradb[188], 1), 20, 5);

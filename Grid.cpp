@@ -578,7 +578,9 @@ int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode* node, MBB& bound, vector<Quad
 	int totalLevel = int(log2(this->cellnum) / log2(4));
 	if (node->isLeaf)
 	{
+		// printf("level:%d,node:%d\n", node->level, node->NodeID);
 		int startCellID = node->NodeID * int(pow(4, (totalLevel - node->level)));
+		// printf("startcellID:%d\n", startCellID);
 		int startIdx = this->cellPtr[startCellID].pointRangeStart;
 		int pointNum = node->numPoints;
 		SPoint* dataPtr = NULL;

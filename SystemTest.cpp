@@ -12,12 +12,13 @@ SystemTest::~SystemTest()
 {
 }
 
-SystemTest::SystemTest(Trajectory* tradb, Grid* g, STIG *stig, FSG* fsg)
+SystemTest::SystemTest(Trajectory* tradb, Grid* g, STIG *stig, FSG* fsg, MortonGrid* mgrid)
 {
 	this->tradb = tradb;
 	this->g = g;
 	this->stig = stig;
 	this->fsg = fsg;
+	this->mgrid = mgrid;
 }
 
 int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
@@ -310,6 +311,65 @@ int SystemTest::FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 #endif
 #ifdef CHECK_CORRECT
 	FILE* fp = fopen("FSGResult.txt", "w+");
+	for (int i = 0; i <= rangeQueryNum - 1; i++)
+	{
+		for (int traID = 1; traID <= this->fsg->trajNum; traID++) {
+			if (resultTable[i][traID])
+				fprintf(fp, "Query %d result: %d\n", i, traID);
+		}
+	}
+	fclose(fp);
+#endif
+	return 0;
+}
+
+int SystemTest::MortonGridRangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
+{
+	this->rangeQueryMBB = rangeQueryMBB;
+	this->rangeQueryNum = rangeQueryNum;
+	MBB mbbArray[5000];
+	int* resultSize = NULL;
+	for (int i = 0; i <= 4999; i++)
+		//rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
+		mbbArray[i] = rangeQueryMBB;
+	MyTimer timer;
+	vector<CPURangeQueryResult> resultTable;
+	resultTable.resize(rangeQueryNum);
+
+	printf("single GPU Morton Grid range query #query=%d:\n", rangeQueryNum);
+	CUDA_CALL(cudaSetDevice(0));
+
+#ifdef WIN32
+	CUDA_CALL(cudaMalloc((void**)(&mgrid->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
+#else
+	CUDA_CALL(cudaMalloc((void**)(&mgrid->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
+#endif
+
+	void *allocatedGPUMem = mgrid->baseAddrRange[0];
+	CUDA_CALL(cudaMalloc((void**)&mgrid->stateTableGPU[0], (long long int)SMALL_MEM * 1024 * 1024));
+	vector<RangeQueryStateTable> stateTableRange;
+	stateTableRange.resize(rangeQueryNum * 50000);
+	//MGRID如果查询数量多于80则显存会不足，因此如果多于80就拆分成几个查询
+	const int ONCE_QUERY_NUM = 50;
+	timer.start();
+	for (int queryIdx = 0; queryIdx < rangeQueryNum; queryIdx += ONCE_QUERY_NUM) {
+		int querySize = (queryIdx + ONCE_QUERY_NUM < rangeQueryNum) ? ONCE_QUERY_NUM : rangeQueryNum - queryIdx;
+		mgrid->baseAddrRange[0] = allocatedGPUMem;
+		mgrid->rangeQueryBatchGPU(&mbbArray[queryIdx], querySize, &resultTable[queryIdx], resultSize, &stateTableRange[queryIdx], 0);
+	}
+	timer.stop();
+	cout << "Single GPU Time of Morton Grid:" << timer.elapse() << "ms" << endl;
+	CUDA_CALL(cudaFree(allocatedGPUMem));
+	CUDA_CALL(cudaFree(mgrid->stateTableGPU[0]));
+
+#ifdef USE_MULTIGPU
+	printf("multi-GPU range query Morton Grid #query=%d:\n", rangeQueryNum);
+	mgrid->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, &resultTable[0], resultSize);
+#else
+
+#endif
+#ifdef CHECK_CORRECT
+	FILE* fp = fopen("MortonResult.txt", "w+");
 	for (int i = 0; i <= rangeQueryNum - 1; i++)
 	{
 		for (int traID = 1; traID <= this->fsg->trajNum; traID++) {
