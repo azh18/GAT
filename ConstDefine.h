@@ -5,7 +5,7 @@
 #define USE_MULTIGPU
 #endif
 
-#define CHECK_CORRECT
+// #define CHECK_CORRECT
 
 //GPU mem alloc
 #ifdef WIN32
