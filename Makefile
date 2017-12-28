@@ -46,7 +46,8 @@ OBJECTS = \
 	Trajectory.o\
 	SystemTest.o\
 	FSG.o\
-	STIG.o
+	STIG.o\
+	MortonGrid.o
 
 
 
