@@ -253,10 +253,14 @@ int STIG::searchNode(MBB queryMBB, std::vector<STIGBlock>* allCandBlocks, LeafNo
 
 int STIG::rangeQueryGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize, int device_idx)
 {
+
 #ifdef CHECK_CORRECT
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		ResultTable[i].resize(this->maxTid + 1);
+	}
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
 		for (int j = 0; j <= this->maxTid; j++)
 		{
 			ResultTable[i][j] = 0;

@@ -5,7 +5,7 @@
 #define USE_MULTIGPU
 #endif
 
-#define CHECK_CORRECT
+// #define CHECK_CORRECT
 
 //GPU mem alloc
 #ifdef WIN32
@@ -16,7 +16,7 @@
 #define SMALL_MEM 2000
 #endif
 
-#define CELL_LEN 0.02 //cell边长大小
+#define CELL_LEN 0.01 //cell边长大小
 //#define VITURAL_CELL_PARAM 8 //虚格子的放大系数，控制虚格子的大小
 
 #define MAX_TRAJ_SIZE 500000

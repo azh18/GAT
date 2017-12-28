@@ -144,10 +144,14 @@ int FSG::addDatasetToGrid(Trajectory * db, int traNum)
 
 int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * ResultTable, int * resultSetSize, RangeQueryStateTable * stateTableAllocate, int device_idx)
 {
+
 #ifdef CHECK_CORRECT
 	for (int i = 0; i <= rangeNum - 1; i++)
 	{
 		ResultTable[i].resize(this->trajNum + 1);
+	}
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
 		for (int j = 0; j <= this->trajNum; j++)
 		{
 			ResultTable[i][j] = 0;
@@ -261,16 +265,16 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 		{
 			int startIdx = this->cellPtr[candidatesCellID[i]].pointRangeStart;
 			int pointNum = this->cellPtr[candidatesCellID[i]].pointRangeEnd - this->cellPtr[candidatesCellID[i]].pointRangeStart + 1;
-			//if (this->nodeAddrTable[device_idx].find(candidatesCellID[i]) == this->nodeAddrTable[device_idx].end()) {
+			if (this->nodeAddrTable[device_idx].find(candidatesCellID[i]) == this->nodeAddrTable[device_idx].end()) {
 				CUDA_CALL(cudaMemcpyAsync(this->baseAddrRange[device_idx], &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
-			//	this->nodeAddrTable[device_idx][candidatesCellID[i]] = this->baseAddrRange[device_idx];
+				this->nodeAddrTable[device_idx][candidatesCellID[i]] = this->baseAddrRange[device_idx];
 				this->stateTableRange[device_idx]->ptr = this->baseAddrRange[device_idx];
 				this->baseAddrRange[device_idx] = (void*)((char*)this->baseAddrRange[device_idx] + pointNum * sizeof(SPoint));
-			//}
-			//else
-			//{
-			//	this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx][candidatesCellID[i]];
-			//}
+			}
+			else
+			{
+				this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx][candidatesCellID[i]];
+			}
 			this->stateTableRange[device_idx]->xmin = bounds[j].xmin;
 			this->stateTableRange[device_idx]->xmax = bounds[j].xmax;
 			this->stateTableRange[device_idx]->ymin = bounds[j].ymin;
@@ -286,16 +290,16 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 		{
 			int startIdx = this->cellPtr[directResultsCellID[i]].pointRangeStart;
 			int pointNum = this->cellPtr[directResultsCellID[i]].pointRangeEnd - this->cellPtr[directResultsCellID[i]].pointRangeStart + 1;
-			//if (this->nodeAddrTable[device_idx].find(directResultsCellID[i]) == this->nodeAddrTable[device_idx].end()) {
+			if (this->nodeAddrTable[device_idx].find(directResultsCellID[i]) == this->nodeAddrTable[device_idx].end()) {
 				CUDA_CALL(cudaMemcpyAsync(this->baseAddrRange[device_idx], &(this->allPoints[startIdx]), pointNum*sizeof(SPoint), cudaMemcpyHostToDevice, stream));
-			//	this->nodeAddrTable[device_idx][directResultsCellID[i]] = this->baseAddrRange[device_idx];
+				this->nodeAddrTable[device_idx][directResultsCellID[i]] = this->baseAddrRange[device_idx];
 				this->stateTableRange[device_idx]->ptr = this->baseAddrRange[device_idx];
 				this->baseAddrRange[device_idx] = (void*)((char*)this->baseAddrRange[device_idx] + pointNum * sizeof(SPoint));
-			//}
-			//else
-			//{
-			//	this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx][directResultsCellID[i]];
-			//}
+			}
+			else
+			{
+				this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx][directResultsCellID[i]];
+			}
 			this->stateTableRange[device_idx]->xmin = bounds[j].xmin;
 			this->stateTableRange[device_idx]->xmax = bounds[j].xmax;
 			this->stateTableRange[device_idx]->ymin = bounds[j].ymin;
@@ -327,6 +331,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 	}
 	//交给GPU进行并行查询
 	//先传递stateTable
+	MyTimer timer;
 	//timer.stop();
 	//cout << "Time 1:" << timer.elapse() << "ms" << endl;
 
@@ -339,7 +344,7 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 	//timer.stop();
 	//cout << "Time 2:" << timer.elapse() << "ms" << endl;
 
-	//timer.start();
+	// timer.start();
 	cudaRangeQueryTestHandler((RangeQueryStateTable*)this->stateTableGPU[device_idx], this->stateTableLength[device_idx], resultsReturned, this->trajNum + 1, rangeNum, stream);
 	//ofstream fp("queryResult(GTS).txt", ios_base::out);
 	//for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
@@ -368,8 +373,8 @@ int FSG::rangeQueryBatchGPU(MBB * bounds, int rangeNum, CPURangeQueryResult * Re
 	//	//cout << (*iter) << endl;
 	//	//printf("%d\n", *iter);
 	//}
-	//timer.stop();
-	//cout << "Time 3:" << timer.elapse() << "ms" << endl;
+	// timer.stop();
+	// std::cout << "Time 3:" << timer.elapse() << "ms" << std::endl;
 
 	//FILE *fp = fopen("resultQuery.txt", "w+");
 	//for (int i = 0; i <= stateTableLength - 1; i++) {
