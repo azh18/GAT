@@ -1058,7 +1058,97 @@ __global__ void cudaRangeQueryTest(RangeQueryStateTable* stateTable, int stateTa
 		}
 		//__syncthreads();
 	}
+	return;
 	
+
+
+	//else {
+	//	//result[candidateNum / MAXTHREAD * MAXTHREAD + tID + resultOffset].idx = 0; //多出来的部分，直接设为无效即可
+	//}
+	//__syncthreads();
+	//__syncthreads();
+	//int globalTID = blockDim.x * blockIdx.x + threadIdx.x;
+	//if (globalTID < stateTableLength) {
+
+	//}
+}
+
+// offsetNum: how many uncontinuous part in each block
+// offsetLen: how many elements in this uncontinuous part
+// offset: the offset of all uncontinuous parts
+// offsetInoffset: the offset in offset array for each block
+__global__ void cudaRangeQueryTestWithoutMorton(RangeQueryStateTable* stateTable, int stateTableLength, uint8_t* result,
+	const int maxTrajNum, int* offset, int* offsetLen, int* offsetNum, int* offsetInOffset) {
+	int bID = blockIdx.x;
+	int tID = threadIdx.x;
+	__shared__ RangeQueryStateTable sharedStateTable;
+	// __shared__ uint8_t resultTemp[10000]; //10K
+	if (tID == 0)
+		sharedStateTable = (stateTable[bID]);
+	__syncthreads();
+	int jobID = sharedStateTable.queryID;
+	SPoint *baseAddr = (SPoint*)(sharedStateTable.ptr);
+	int candidateNum = sharedStateTable.candidatePointNum;//该block的需要查询的点的个数
+														  //int resultOffset = bID*maxPointNumInStateTable; //该block的结果的起始地址
+	SPoint p;
+	// all offset of start of array in this block
+	__shared__ int offsetLocal[1000];
+	__shared__ int offsetLenLocal[1000];
+	int continuousNum = offsetNum[bID];
+	for (int i = 0; i < continuousNum; i += MAXTHREAD) {
+		if (i + tID < continuousNum) {
+			offsetLocal[i + tID] = offset[offsetInOffset[bID] + i + tID];
+			offsetLenLocal[i + tID] = offsetLen[offsetInOffset[bID] + i + tID];
+		}
+	}
+	__syncthreads();
+	/*
+	for (int i = 0; i <= candidateNum / MAXTHREAD-1; i++) {
+	//p = *(baseAddr + (i*MAXTHREAD + tID));
+	p = baseAddr[i*MAXTHREAD + tID];
+	//result[i*MAXTHREAD + tID + resultOffset].idx = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) &&
+	//(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))*(i*MAXTHREAD + tID);//如果验证通过，则该值为本身编号，否则为0
+	//result[i*MAXTHREAD + tID + resultOffset].jobID = bID;
+	//result[resultOffset + (i*MAXTHREAD + tID)] = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) &&
+	//		(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin));
+	if((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) && (p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))
+	result[jobID*maxTrajNum + p.tID] = 1;
+	//如果验证通过，则相应位被置为1
+
+	//__syncthreads();
+	}
+	if (tID < candidateNum - candidateNum / MAXTHREAD * MAXTHREAD) {
+	p = *(baseAddr + (candidateNum / MAXTHREAD * MAXTHREAD + tID));
+	//result[candidateNum / MAXTHREAD * MAXTHREAD + tID + resultOffset].idx = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) &&
+	//	(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))*(candidateNum / MAXTHREAD * MAXTHREAD + tID);//如果验证通过，则该值为本身编号，否则为0
+	//result[candidateNum / MAXTHREAD * MAXTHREAD + tID + resultOffset].jobID = bID;
+	//result[resultOffset + (candidateNum / MAXTHREAD * MAXTHREAD + tID)] = ((p.x<sharedStateTable.xmax) &&
+	//	(p.x>sharedStateTable.xmin) && (p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin));
+	if ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) && (p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))
+	result[jobID*maxTrajNum + p.tID] = 1;
+	}
+	*/
+
+	//new version
+	for (int i = 0; i < continuousNum; i++) {
+		int offsetLength = offsetLenLocal[i];
+		int offsetAddr = offsetLocal[i];
+		for (int j = 0; j < offsetLength; j += MAXTHREAD) {
+			if (j + tID < offsetLength) {
+				p = baseAddr[offsetAddr + j + tID];
+				//result[i*MAXTHREAD + tID + resultOffset].idx = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) &&
+				//(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))*(i*MAXTHREAD + tID);//如果验证通过，则该值为本身编号，否则为0
+				//result[i*MAXTHREAD + tID + resultOffset].jobID = bID;
+				//result[resultOffset + (i*MAXTHREAD + tID)] = ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) && 
+				//		(p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin));
+				if ((p.x<sharedStateTable.xmax) && (p.x>sharedStateTable.xmin) && (p.y<sharedStateTable.ymax) && (p.y>sharedStateTable.ymin))
+					result[jobID*maxTrajNum + p.tID] = 1;
+				//如果验证通过，则相应位被置为1
+			}
+		}
+	}
+	return;
+
 
 
 	//else {
@@ -1148,6 +1238,44 @@ int cudaRangeQuerySTIGHandler(RangeQueryStateTable* stateTableGPU, int stateTabl
 	//timer.stop();
 	//std::cout << "Time 3:" << timer.elapse() << "ms" << std::endl;
 	CUDA_CALL(cudaFree(resultGPU));
+	return 0;
+}
+
+int cudaRangeQueryTestHandlerNonMorton(RangeQueryStateTable* stateTableGPU, int stateTableLength, uint8_t *result, int maxTrajNum
+	, int maxJobNum, cudaStream_t stream, int* offset, int* offsetLen, int* offsetNum, int* offsetInOffset) {
+	/*
+	without Morton encoding, each line should be processed seperately.
+	divide loops to process each line (continuous points).
+
+	*/
+	//RangeQueryResultGPU* resultGPU;
+	//MyTimer timer;
+	uint8_t* resultGPU;
+	//int resultByteNum = (maxPointNum)/8+1;//每个结果需要用几个byte保存，不能按比特，只能按字节
+	CUDA_CALL(cudaMalloc((void**)&resultGPU, (maxTrajNum)*maxJobNum));//selective低一点
+	CUDA_CALL(cudaMemset(resultGPU, 0, (maxTrajNum)*maxJobNum));
+	
+	//timer.start();
+	//多分配一点内存，每个stateTable项占据的内存数相等
+	//CUDA_CALL(cudaMalloc((void**)&resultGPU, (maxPointNum)*stateTableLength));
+
+	//CUDA_CALL(cudaMalloc((void**)&resultGPU, maxPointNum*stateTableLength*sizeof(RangeQueryResultGPU)));
+	//timer.stop();
+	//std::cout << "Time 1:" << timer.elapse() << "ms" << std::endl;
+
+	//timer.start();	
+	cudaRangeQueryTestWithoutMorton << <stateTableLength, MAXTHREAD, 0, stream >> >(stateTableGPU, stateTableLength, 
+		resultGPU, maxTrajNum, offset, offsetLen, offsetNum, offsetInOffset);
+	CUDA_CALL(cudaDeviceSynchronize());
+	//timer.stop();
+	//std::cout << "Time 2:" << timer.elapse() << "ms" << std::endl;
+	//timer.start();
+
+	CUDA_CALL(cudaMemcpy(result, resultGPU, (maxTrajNum)*maxJobNum, cudaMemcpyDeviceToHost));
+	CUDA_CALL(cudaFree(resultGPU));
+
+	//timer.stop();
+	//std::cout << "Time 3:" << timer.elapse() << "ms" << std::endl;
 	return 0;
 }
 

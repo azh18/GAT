@@ -51,8 +51,11 @@ public:
 	int rangeQueryBatchMultiThread(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
 	int findMatchNodeInQuadTree(QuadtreeNode *node, MBB& bound, std::vector<QuadtreeNode*> *cells);
 	int rangeQueryBatchGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx);
+	int rangeQueryBatchGPUWithoutMorton(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx);
 	int rangeQueryBatchMultiGPU(MBB *bounds, int rangeNum, CPURangeQueryResult *ResultTable, int *resultSetSize);
 	int findMatchNodeInQuadTreeGPU(QuadtreeNode *node, MBB& bound, std::vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID, int device_idx);
+	int findMatchNodeInQuadTreeGPUWithoutMorton(QuadtreeNode *node, MBB& bound, std::vector<QuadtreeNode*> *cells, cudaStream_t stream, int queryID, int device_idx,
+		std::vector<int>& blockOffsetInData, std::vector<int>& blockOffsetNum, std::vector<int>& blockOffsetOfOffset, std::vector<int>& blockLength);
 	//SimilarityQuery
 	int SimilarityQueryBatch(Trajectory* qTra, int queryTrajNum, int* topKSimilarityTraj, int kValue);
 	int SimilarityQueryBatchCPUParallel(Trajectory *qTra, int queryTrajNum, int *EDRdistance, int kValue);
@@ -64,6 +67,7 @@ public:
 
 
 	//Grid索引包含的坐标范围
+	int nodeNum;// total nodes num in quadtree
 	MBB range;
 	float cell_size; //length of a cell
 	int cellNum_axis; // 每行/列有几个cell

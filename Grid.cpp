@@ -53,6 +53,8 @@ int getIdxFromXY(int x, int y)
 	return result;
 }
 
+
+
 int Grid::buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode* parent)
 {
 	int totalLevel = int(log2(this->cellnum) / log2(4));
@@ -77,6 +79,7 @@ int Grid::buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode* pa
 	}
 	else
 	{
+		this->nodeNum += 4;
 		pNode->isLeaf = false;
 		pNode->UL = (QuadtreeNode*)malloc(sizeof(QuadtreeNode));
 		this->buildQuadTree(level + 1, id << 2, pNode->UL, pNode);
@@ -93,6 +96,7 @@ int Grid::buildQuadTree(int level, int id, QuadtreeNode* pNode, QuadtreeNode* pa
 
 Grid::Grid(const MBB& mbb, float val_cell_size, int VITURAL_CELL_PARAM)
 {
+	this->nodeNum = 0;
 	this->VITURAL_CELL_PARAM = VITURAL_CELL_PARAM;
 	range = mbb;
 	cell_size = val_cell_size;
@@ -442,6 +446,7 @@ int Grid::findMatchNodeInQuadTree(QuadtreeNode* node, MBB& bound, vector<Quadtre
 }
 
 
+
 int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* ResultTable, int* resultSetSize, RangeQueryStateTable* stateTableAllocate, int device_idx)
 {
 
@@ -533,6 +538,126 @@ int Grid::rangeQueryBatchGPU(MBB* bounds, int rangeNum, CPURangeQueryResult* Res
 	//}
 	//查询结束，善后，清空stateTable，清空gpu等
 	cudaStreamDestroy(stream);
+	return 0;
+}
+
+int Grid::rangeQueryBatchGPUWithoutMorton(MBB * bounds, int rangeNum, CPURangeQueryResult * ResultTable, int * resultSetSize, RangeQueryStateTable * stateTableAllocate, int device_idx)
+{
+#ifdef CHECK_CORRECT
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
+		ResultTable[i].resize(this->trajNum + 1);
+	}
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
+		for (int j = 0; j <= this->trajNum; j++)
+		{
+			ResultTable[i][j] = 0;
+		}
+	}
+#endif
+	// 分配GPU内存
+	MyTimer timer;
+	// 参数随便设置的，可以再调
+	// timer.start();
+	CUDA_CALL(cudaSetDevice(device_idx));
+	this->stateTableRange[device_idx] = stateTableAllocate;
+	this->stateTableLength[device_idx] = 0;
+	this->nodeAddrTableLength[device_idx] = 0;
+	vector<int> blockOffsetInData, blockOffsetNum, blockOffsetOfOffset, blockLength;
+	// for each query, generate the nodes:
+	cudaStream_t stream;
+	cudaStreamCreate(&stream);
+	for (int i = 0; i <= rangeNum - 1; i++)
+	{
+		findMatchNodeInQuadTreeGPUWithoutMorton(root, bounds[i], NULL, stream, i, device_idx, 
+			blockOffsetInData, blockOffsetNum, blockOffsetOfOffset, blockLength);
+	}
+	//printf("StateTableLength:%d",this->stateTableLength);
+	//stateTable中点的数目的最大值
+	// FILE* testFile = fopen("freq.txt", "w+");
+	int maxPointNum = 0;
+	for (int i = 0; i <= this->stateTableLength[device_idx] - 1; i++)
+	{
+		if (stateTableAllocate[i].candidatePointNum > maxPointNum)
+			maxPointNum = stateTableAllocate[i].candidatePointNum;
+		//fprintf(testFile, "%d ", stateTableAllocate[i].candidatePointNum);
+	}
+	//交给GPU进行并行查询
+	//先传递stateTable
+	// timer.stop();
+	// cout << "Time 1:" << timer.elapse() << "ms" << endl;
+
+	// timer.start();
+	// transfer offset of uncontinuous part
+	size_t allSpaceForOffsetContinuous = blockOffsetInData.size() + blockOffsetNum.size() +
+		blockOffsetOfOffset.size() + blockLength.size();
+	// printf("%zd", allSpaceForOffsetContinuous);
+	int* startGPUTemp = NULL;
+	CUDA_CALL(cudaMalloc((void**)&startGPUTemp, sizeof(int)*allSpaceForOffsetContinuous));
+	void* GPUTempPtr = (void*)startGPUTemp;
+	int* blockOffsetInDataGPU=startGPUTemp, *blockOffsetNumGPU, *blockOffsetOfOffsetGPU, *blockLengthGPU;
+	CUDA_CALL(cudaMemcpyAsync(startGPUTemp, &blockOffsetInData[0], sizeof(int)*blockOffsetInData.size(),cudaMemcpyHostToDevice,stream));
+	startGPUTemp += blockOffsetInData.size();
+	blockOffsetNumGPU = startGPUTemp;
+	CUDA_CALL(cudaMemcpyAsync(startGPUTemp, &blockOffsetNum[0], sizeof(int)*blockOffsetNum.size(), cudaMemcpyHostToDevice, stream));
+	startGPUTemp += blockOffsetNum.size();
+	blockOffsetOfOffsetGPU = startGPUTemp;
+	CUDA_CALL(cudaMemcpyAsync(startGPUTemp, &blockOffsetOfOffset[0], sizeof(int)*blockOffsetOfOffset.size(), cudaMemcpyHostToDevice, stream));
+	startGPUTemp += blockOffsetOfOffset.size();
+	blockLengthGPU = startGPUTemp;
+	CUDA_CALL(cudaMemcpyAsync(startGPUTemp, &blockLength[0], sizeof(int)*blockLength.size(), cudaMemcpyHostToDevice, stream));
+
+
+	CUDA_CALL(cudaMemcpyAsync(this->stateTableGPU[device_idx], stateTableAllocate, sizeof(RangeQueryStateTable)*this->stateTableLength[device_idx],
+		cudaMemcpyHostToDevice, stream));
+	//传递完成，开始调用kernel查询
+	uint8_t* resultsReturned = (uint8_t*)malloc(sizeof(uint8_t) * (this->trajNum + 1) * rangeNum);
+
+	// timer.stop();
+	// cout << "Time 2:" << timer.elapse() << "ms" << endl;
+
+	// timer.start();
+	//cudaRangeQueryTestHandler((RangeQueryStateTable*)this->stateTableGPU[device_idx], 
+	//	this->stateTableLength[device_idx], resultsReturned, this->trajNum + 1, rangeNum, stream);
+	cudaRangeQueryTestHandlerNonMorton((RangeQueryStateTable*)this->stateTableGPU[device_idx],
+		this->stateTableLength[device_idx], resultsReturned, this->trajNum + 1, rangeNum, stream,
+		blockOffsetInDataGPU, blockLengthGPU, blockOffsetNumGPU, blockOffsetOfOffsetGPU);
+	//ofstream fp("queryResult(GTS).txt", ios_base::out);
+#ifdef CHECK_CORRECT
+
+	for (int jobID = 0; jobID <= rangeNum - 1; jobID++)
+	{
+		for (int traID = 0; traID <= this->trajNum; traID++)
+		{
+			if (resultsReturned[jobID * (this->trajNum + 1) + traID] == 1)
+			{
+				ResultTable[jobID][traID] = TRUE;
+			}
+		}
+	}
+#endif
+	//for (vector<uint8_t>::iterator iter = resultsReturned.begin(); iter != resultsReturned.end(); iter++) {
+	//	//cout << (*iter) << endl;
+	//	//printf("%d\n", *iter);
+	//}
+	// timer.stop();
+	// cout << "Time 3:" << timer.elapse() << "ms" << endl;
+
+	//FILE *fp = fopen("resultQuery.txt", "w+");
+	//for (int i = 0; i <= stateTableLength - 1; i++) {
+	//	for (int j = 0; j <= stateTableAllocate[i].candidatePointNum - 1; j++) {
+
+	//		if ((resultsReturned[i*maxPointNum + j]) == (uint8_t)(1)) {
+	//			fprintf(fp,"%d\n", stateTableAllocate[i].startIdxInAllPoints + j);
+	//			fprintf(fp,"%f,%f\n", allPoints[stateTableAllocate[i].startIdxInAllPoints + j].x, allPoints[stateTableAllocate[i].startIdxInAllPoints + j].y);
+	//		}
+
+	//	}
+	//}
+	//查询结束，善后，清空stateTable，清空gpu等
+	cudaStreamDestroy(stream);
+	CUDA_CALL(cudaFree(GPUTempPtr));
 	return 0;
 }
 
@@ -631,6 +756,94 @@ int Grid::findMatchNodeInQuadTreeGPU(QuadtreeNode* node, MBB& bound, vector<Quad
 			findMatchNodeInQuadTreeGPU(node->DL, bound, cells, stream, queryID, device_idx);
 		if (bound.intersect(node->DR->mbb))
 			findMatchNodeInQuadTreeGPU(node->DR, bound, cells, stream, queryID, device_idx);
+	}
+	return 0;
+}
+
+int Grid::findMatchNodeInQuadTreeGPUWithoutMorton(QuadtreeNode * node, MBB & bound, 
+	std::vector<QuadtreeNode*>* cells, cudaStream_t stream, int queryID, int device_idx, 
+	vector<int>& blockOffsetInData, vector<int>& blockOffsetNum, vector<int>& blockOffsetOfOffset, 
+	vector<int>& blockLength)
+{
+	int totalLevel = int(log2(this->cellnum) / log2(4));
+	if (node->isLeaf)
+	{
+		// printf("level:%d,node:%d\n", node->level, node->NodeID);
+		int startCellID = node->NodeID * int(pow(4, (totalLevel - node->level)));
+		// printf("startcellID:%d\n", startCellID);
+		int startIdx = this->cellPtr[startCellID].pointRangeStart;
+		int pointNum = node->numPoints;
+		SPoint* dataPtr = NULL;
+		// simulate no morton encoding
+		int colsOfCells = int(pow(2, (totalLevel - node->level)));
+
+
+		//如果gpu内存中没有该node的信息
+		if (this->nodeAddrTable[device_idx].find(startCellID) == this->nodeAddrTable[device_idx].end())
+		{
+			CUDA_CALL(cudaMemcpyAsync(this->baseAddrRange[device_idx], &(this->allPoints[startIdx]), pointNum * sizeof(SPoint), cudaMemcpyHostToDevice, stream));
+			dataPtr = (SPoint*)this->baseAddrRange[device_idx];
+			this->nodeAddrTable[device_idx].insert(pair<int, void*>(startCellID, this->baseAddrRange[device_idx]));
+			this->baseAddrRange[device_idx] = (void*)((char*)this->baseAddrRange[device_idx] + pointNum * sizeof(SPoint));
+		}
+		//如果有，不再复制，直接用
+		else
+		{
+			//this->stateTableRange[device_idx]->ptr = this->nodeAddrTable[device_idx].find(startCellID)->second;
+			dataPtr = (SPoint*)this->nodeAddrTable[device_idx].find(startCellID)->second;
+		}
+
+
+
+		int pointsInState = 0;
+		for (int idx = 0; idx < pointNum; idx += MAXPOINTINNODE) {
+			this->stateTableRange[device_idx]->ptr = dataPtr;
+			this->stateTableRange[device_idx]->xmin = bound.xmin;
+			this->stateTableRange[device_idx]->xmax = bound.xmax;
+			this->stateTableRange[device_idx]->ymin = bound.ymin;
+			this->stateTableRange[device_idx]->ymax = bound.ymax;
+			if (idx + MAXPOINTINNODE >= pointNum)
+				pointsInState = pointNum - idx;
+			else
+				pointsInState = MAXPOINTINNODE;
+			this->stateTableRange[device_idx]->candidatePointNum = pointsInState;
+			this->stateTableRange[device_idx]->startIdxInAllPoints = startIdx + idx;
+			this->stateTableRange[device_idx]->queryID = queryID;
+			this->stateTableRange[device_idx] = this->stateTableRange[device_idx] + 1;
+			this->stateTableLength[device_idx] = this->stateTableLength[device_idx] + 1;
+			this->testCnt++;
+			
+			// simulate no morton encoding
+			// each block for a cuda block
+			blockOffsetNum.push_back(colsOfCells);
+			blockOffsetOfOffset.push_back((int)blockOffsetInData.size());
+			int added = 0;
+			for (int i = 0; i < colsOfCells; i++) {
+				blockOffsetInData.push_back(added);
+				if (added + pointsInState / colsOfCells <= pointsInState)
+					blockLength.push_back(pointsInState / colsOfCells);
+				else
+					blockLength.push_back(pointsInState - added);
+			}
+
+			//printf("%d ", this->testCnt);
+			dataPtr += pointsInState;
+		}
+	}
+	else
+	{
+		if (bound.intersect(node->UL->mbb))
+			findMatchNodeInQuadTreeGPUWithoutMorton(node->UL, bound, cells, stream, queryID, device_idx,
+				blockOffsetInData, blockOffsetNum, blockOffsetOfOffset, blockLength);
+		if (bound.intersect(node->UR->mbb))
+			findMatchNodeInQuadTreeGPUWithoutMorton(node->UR, bound, cells, stream, queryID, device_idx,
+				blockOffsetInData, blockOffsetNum, blockOffsetOfOffset, blockLength);
+		if (bound.intersect(node->DL->mbb))
+			findMatchNodeInQuadTreeGPUWithoutMorton(node->DL, bound, cells, stream, queryID, device_idx,
+				blockOffsetInData, blockOffsetNum, blockOffsetOfOffset, blockLength);
+		if (bound.intersect(node->DR->mbb))
+			findMatchNodeInQuadTreeGPUWithoutMorton(node->DR, bound, cells, stream, queryID, device_idx,
+				blockOffsetInData, blockOffsetNum, blockOffsetOfOffset, blockLength);
 	}
 	return 0;
 }

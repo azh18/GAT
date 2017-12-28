@@ -27,5 +27,6 @@ int Similarity_Pruning_Handler(intPair* queryFVGPU, intPair* FVinfo, intPair* FV
 
 int cudaRangeQuerySTIGHandler(RangeQueryStateTable* stateTableGPU, int stateTableLength, uint8_t *result, int maxTrajNum
 	, int maxJobNum, cudaStream_t stream);
-
+int cudaRangeQueryTestHandlerNonMorton(RangeQueryStateTable* stateTableGPU, int stateTableLength, uint8_t *result, int maxTrajNum
+	, int maxJobNum, cudaStream_t stream, int* offset, int* offsetLen, int* offsetNum, int* offsetInOffset);
 //__global__ void testSharedMemory();
