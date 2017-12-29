@@ -251,6 +251,8 @@ int main()
 	printf("test on performance:--------------------------\n");
 	test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
 
+	test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 80);
+
 	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
 
 	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
@@ -280,12 +282,12 @@ int main()
 	// // test.similarityQueryTest(21032, 40, 5);
 	// // test.similarityQueryTest(21032, 50, 5);
 	// // test.similarityQueryTest(21032, 60, 5);
-	printf("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk\n");
-	test.similarityQueryTest(splitTrajectory(&d, 5), 40, 5);
-	test.similarityQueryTest(splitTrajectory(&d, 5), 40, 10);
-	test.similarityQueryTest(splitTrajectory(&d, 5), 40, 15);
-	test.similarityQueryTest(splitTrajectory(&d, 5), 40, 20);
-	test.similarityQueryTest(splitTrajectory(&d, 5), 40, 25);
+	//printf("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk\n");
+	//test.similarityQueryTest(splitTrajectory(&d, 5), 40, 5);
+	//test.similarityQueryTest(splitTrajectory(&d, 5), 40, 10);
+	//test.similarityQueryTest(splitTrajectory(&d, 5), 40, 15);
+	//test.similarityQueryTest(splitTrajectory(&d, 5), 40, 20);
+	//test.similarityQueryTest(splitTrajectory(&d, 5), 40, 25);
 	// test.similarityQueryTest(splitTrajectory(24269, 4), 20, 5);
 	// 
 	// test.similarityQueryTest(splitTrajectory(24269, 4), 20, 10);

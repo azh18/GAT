@@ -101,6 +101,66 @@ int SystemTest::rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum)
 	return 0;
 }
 
+int SystemTest::rangeQueryTestWithoutMorton(MBB rangeQueryMBB, int rangeQueryNum)
+{
+	this->rangeQueryMBB = rangeQueryMBB;
+	this->rangeQueryNum = rangeQueryNum;
+	CPURangeQueryResult* resultTable = NULL;
+	MBB mbbArray[5000];
+	int* resultSize = NULL;
+	for (int i = 0; i <= 4999; i++)
+		//rangeQueryMBB.randomGenerateMBB(mbbArray[i]);
+		mbbArray[i] = rangeQueryMBB;
+	MyTimer timer;
+
+
+
+	printf("single GPU range query without Morton #query=%d:\n", rangeQueryNum);
+	CUDA_CALL(cudaSetDevice(0));
+	vector<CPURangeQueryResult> rangeQueryResultGPU;
+	rangeQueryResultGPU.resize(rangeQueryNum);
+
+#ifdef WIN32
+	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
+#else
+	CUDA_CALL(cudaMalloc((void**)(&g->baseAddrRange[0]), (long long int)BIG_MEM * 1024 * 1024));
+#endif
+
+	void *allocatedGPUMem = g->baseAddrRange[0];
+	CUDA_CALL(cudaMalloc((void**)&g->stateTableGPU[0], (long long int)SMALL_MEM * 1024 * 1024));
+	vector<RangeQueryStateTable> stateTableRange;
+	stateTableRange.resize(rangeQueryNum * 50000);
+	timer.start();
+	g->rangeQueryBatchGPUWithoutMorton(mbbArray, rangeQueryNum, &rangeQueryResultGPU[0], resultSize, &stateTableRange[0], 0);
+	timer.stop();
+	cout << "Single GPU Time without Morton:" << timer.elapse() << "ms" << endl;
+	CUDA_CALL(cudaFree(allocatedGPUMem));
+	CUDA_CALL(cudaFree(g->stateTableGPU[0]));
+#ifdef CHECK_CORRECT
+	FILE* fp = fopen("GPUResult.txt", "w+");
+	for (int i = 0; i <= rangeQueryNum - 1; i++)
+	{
+		for (int traID = 1; traID <= this->g->trajNum; traID++) {
+			if (rangeQueryResultGPU[i][traID])
+				fprintf(fp, "Query %d result: %d\n", i, traID);
+		}
+	}
+	fclose(fp);
+#endif
+
+#ifdef USE_MULTIGPU
+	printf("multi-GPU range query #query=%d:\n", rangeQueryNum);
+	vector<CPURangeQueryResult> rangeQueryResultGPUs;
+	rangeQueryResultGPUs.resize(rangeQueryNum);
+	g->rangeQueryBatchMultiGPU(mbbArray, rangeQueryNum, &rangeQueryResultGPUs[0], resultSize);
+#else
+
+#endif
+
+
+	return 0;
+}
+
 int SystemTest::similarityQueryTest(Trajectory t, int similarityScale, int similarityKValue)
 {
 	baseAddrGPU = NULL;

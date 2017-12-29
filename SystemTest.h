@@ -26,6 +26,7 @@ public:
 	int similarityKValue;
 	SystemTest(Trajectory* tradb, Grid* g, STIG *stig, FSG* fsg, MortonGrid *mgrid);
 	int rangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
+	int rangeQueryTestWithoutMorton(MBB rangeQueryMBB, int rangeQueryNum);
 	int similarityQueryTest(Trajectory t, int similarityScale, int similarityKValue);
 	int STIGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
 	int FSGrangeQueryTest(MBB rangeQueryMBB, int rangeQueryNum);
