@@ -162,18 +162,7 @@ int main()
 	//g->writeCellsToFile(temp, sizetemp, "111.txt");
 	
 	SystemTest test(tradb, g, stig, fsg, mgrid);
-	// test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
-	// test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
-	// test.rangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
-	// test.rangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
-	// test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
-	// test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
-	// test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
-	// test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
-	// test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
-	// test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
-	// test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
-	// test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
+
 
 	//  test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 20);
 	 // test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 40);
@@ -248,9 +237,15 @@ int main()
 	// test.similarityQueryTest(reduceTrajectory(&tradb[TRAID], 4), 40, 15);
 	// test.similarityQueryTest(reduceTrajectory(&tradb[TRAID], 6), 40, 15);
 	// test.similarityQueryTest(reduceTrajectory(&tradb[TRAID], 8), 40, 15);
-	printf("test on performance:--------------------------\n");
+	printf("warm up:--------------------------\n");
 	test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
 
+	printf("test on performance:--------------------------\n");
+	test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 80);
 	test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 80);
 
 	test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
@@ -258,6 +253,57 @@ int main()
 	test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
 
 	test.MortonGridRangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	test.MortonGridRangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	test.MortonGridRangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+
+	 printf("test on query size-------------------------------------\n");
+
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 40);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 60);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 100);
+	 test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 120);
+
+	 test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 40);
+	 test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 60);
+	 test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	 test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 100);
+	 test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 120);
+
+
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 40);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 60);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 100);
+	 test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 120);
+
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 40);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 60);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 100);
+	 test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228), 120);
+
+	 printf("test on range size-------------------------------------\n");
+	  test.rangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
+	  test.rangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
+	  test.rangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
+	  test.rangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
+
+	  test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.42, 31.228), 80);
+	  test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.44, 31.228), 80);
+	  test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.46, 31.228), 80);
+	  test.rangeQueryTestWithoutMorton(MBB(121.4, 31.128, 121.48, 31.228), 80);
+
+	  test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
+	  test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
+	  test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
+	  test.STIGrangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
+
+	  test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.42, 31.228 ), 80);
+	  test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.44, 31.228 ), 80);
+	  test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.46, 31.228 ), 80);
+	  test.FSGrangeQueryTest(MBB(121.4, 31.128, 121.48, 31.228 ), 80);
+
 
 	// test.similarityQueryTest(reduceTrajectory(&tradb[188], 1), 10, 5);
 	// test.similarityQueryTest(reduceTrajectory(&tradb[188], 1), 20, 5);
