@@ -1,8 +1,9 @@
 # GAT
 A GPU-accelerated framework for processing trajectory queries, supporting two basic kinds of queries: range query and top-k similarity query.
 
-## prerequisits ##
+## Prerequisits ##
 CUDA 8.0
+
 GCC 4.8.5 with c++11 support
 
 ## Compile ##
