@@ -1,5 +1,5 @@
 # GAT
-A GPU-accelerated framework for processing trajectory queries, supporting two basic kinds of queries: range query and top-k similarity query.
+A GPU-accelerated framework for processing trajectory queries, supporting two basic kinds of queries: range query and top-k similarity query. 
 
 ## Prerequisits ##
 CUDA 8.0
@@ -34,11 +34,5 @@ invoke following functions in main.cpp:
 ## Run ##
 Just directly execute the compiled and linked executive file.
 
-## Process ##
-17/8/2: testing whether STIG works on multi-GPU environment
-
-17/8/7: add multi-thread CPU version of range query
-
-17/9/4: get wanted results, use const range query configuration to make sure the equality
-
-17/10/9: finish the paper!
+## Reference ##
+A GPU-accelerated Framework for Processing Trajectory Queries, Bowen Zhang, Yanyan Shen, Yanmin Zhu, Jiadi Yu, ICDE18
