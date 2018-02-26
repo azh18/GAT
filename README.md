@@ -35,4 +35,4 @@ invoke following functions in main.cpp:
 Just directly execute the compiled and linked executive file.
 
 ## Reference ##
-A GPU-accelerated Framework for Processing Trajectory Queries, Bowen Zhang, Yanyan Shen, Yanmin Zhu, Jiadi Yu, ICDE18
+_A GPU-accelerated Framework for Processing Trajectory Queries_, Bowen Zhang, Yanyan Shen, Yanmin Zhu and Jiadi Yu, ICDE18
